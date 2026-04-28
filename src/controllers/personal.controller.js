@@ -1,8 +1,12 @@
-import { Personal, TipoPersonal } from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { personal, tipo_personal } = models;
 
 export const getPersonal = async (req, res) => {
-  const personal = await Personal.findAll();
-  res.json(personal);
+  const data = await personal.findAll();
+  res.json(data);
 };
 
 export const createPersonal = async (req, res) => {
@@ -15,7 +19,7 @@ export const createPersonal = async (req, res) => {
   }
 
   try {
-    const tipoPersonal = await TipoPersonal.findOne({
+    const tipoPersonal = await tipo_personal.findOne({
       where: { tipo }
     });
 
@@ -25,7 +29,7 @@ export const createPersonal = async (req, res) => {
       });
     }
 
-    const persona = await Personal.create({
+    const persona = await personal.create({
       nombre,
       apellido,
       id_tipo_personal: tipoPersonal.id_tipo_personal
@@ -40,9 +44,10 @@ export const createPersonal = async (req, res) => {
 
 export const getChoferes = async (req, res) => {
   try {
-    const choferes = await Personal.findAll({
+    const choferes = await personal.findAll({
       include: [{
-        model: TipoPersonal,
+        model: tipo_personal,
+        as: "id_tipo_personal_tipo_personal",
         where: { tipo: "CHOFER" }
       }]
     });

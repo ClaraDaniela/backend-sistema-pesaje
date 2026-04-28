@@ -27,7 +27,7 @@ router.use("/balanza", balanzaRoutes);
 router.use("/tipos_vehiculo", tiposvehiculoRoutes);
 router.use("/inventario", inventario);
 router.use("/export", exportRoutes);
-router.use("/usuarios", usuarioRoute);
+router.use("/login", usuarioRoute);
 router.use("/tipos_caja", tiposcajasRoutes);
 router.use("/descargas", descargasRoutes);
 router.use("/materiales_descarga", materialesDescargas);

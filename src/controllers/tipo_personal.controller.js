@@ -1,7 +1,11 @@
-import { TipoPersonla } from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { tipo_personal } = models;
 
 export const getTiposPersonal = async (req, res) => {
-  const tiposPersonal = await TipoPersonal.findAll();
+  const tiposPersonal = await tipo_personal.findAll();
   res.json(tiposPersonal);
 };
 
@@ -11,7 +15,7 @@ export const createTiposPersonal = async (req, res) => {
     return res.status(400).json({ error: "Nombre requerido" });
   }
 
-  const tipoPersonal = await TipoPersonal.create({
+  const tipoPersonal = await tipo_personal.create({
     nombre,
   });
 

@@ -1,5 +1,8 @@
-import { InventarioFisico } from "../models/index.js";
+import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { inventario_fisico } = models;
 
 export const getInventario = async (req, res) => {
   try {

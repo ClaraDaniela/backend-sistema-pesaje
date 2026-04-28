@@ -1,7 +1,11 @@
-import { TipoCaja } from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { tipos_caja } = models;
 
 export const getTiposCaja = async (req, res) => {
-  const tiposCaja = await TipoCaja.findAll();
+  const tiposCaja = await tipos_caja.findAll();
   res.json(tiposCaja);
 };
 
@@ -11,7 +15,7 @@ export const createTiposCaja = async (req, res) => {
     return res.status(400).json({ error: "Nombre requerido" });
   }
 
-  const tipoCaja = await TipoCaja.create({
+  const tipoCaja = await tipos_caja.create({
     nombre,
   });
 

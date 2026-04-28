@@ -1,11 +1,11 @@
-import {
-  DescargaDetalle,
-  MaterialDescarga,
-  Pesada,
-  sequelize
-} from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
 
-export const crearDescarga = async (req, res) => {
+const models = initModels(sequelize);
+const { descarga_detalles, MaterialDescarga, pesadas } = models;
+
+
+export const createDescarga = async (req, res) => {
   const { pesada_id, responsable, comentarios, materiales } = req.body;
 
   const t = await sequelize.transaction();

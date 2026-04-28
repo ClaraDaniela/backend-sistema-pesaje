@@ -1,12 +1,12 @@
 import express from "express";
 import {
-  crearDescarga,
+  createDescarga,
   getDescargaPorPesada
 } from "../controllers/descargas.controller.js";
 
 const router = express.Router();
 
-router.post("/", crearDescarga);
+router.post("/", createDescarga);
 router.get("/:pesadaId", getDescargaPorPesada);
 
 export default router;

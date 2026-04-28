@@ -1,41 +1,54 @@
-import axios from "axios";
+import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
-import { Pesada, Vehiculo, Caja, TipoVehiculo } from "../models/index.js";
 
-/* ============================================================
-   CREATE
-============================================================ */
+const models = initModels(sequelize);
+
+const {
+  pesadas: Pesada,
+  vehiculos: Vehiculo,
+  tipos_vehiculo: TipoVehiculo,
+  cajas: Caja
+} = models;
+
+
 export const createPesada = async (req, res) => {
   try {
     const {
       tipo_movimiento,
       empresa_id,
       personal_id,
-      material_id,
+      material_general_id,
       vehiculo_id,
       caja_id,
       peso_manual,
-      modo, // AUTOMATICO | MANUAL
+      modo,
       usuario_id,
       password_manual,
       motivo_manual,
+      tara_real_kg,
+      nro_manifiesto,
+      nro_remito,
+      peso_declarado_kg
     } = req.body;
 
-    if (!tipo_movimiento || !empresa_id || !personal_id || !material_id || !vehiculo_id) {
+    if (!tipo_movimiento || !empresa_id || !personal_id || !material_general_id || !vehiculo_id) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
     const vehiculo = await Vehiculo.findByPk(vehiculo_id, {
-      include: [{ model: TipoVehiculo }],
+      include: [{
+        model: TipoVehiculo,
+        as: "tipo_vehiculo"
+      }]
     });
 
     if (!vehiculo) {
       return res.status(404).json({ error: "Vehículo no encontrado" });
     }
 
-    const tipoVehiculo = vehiculo.TipoVehiculo?.nombre;
-
     let cajaFinal = null;
+
+    const tipoVehiculo = vehiculo.tipo_vehiculo?.nombre;
 
     if (tipoVehiculo === "ROLL OFF") {
       if (!caja_id) {
@@ -52,15 +65,11 @@ export const createPesada = async (req, res) => {
 
     if (modo === "MANUAL") {
       if (password_manual !== process.env.MANUAL_AUTH_PASSWORD) {
-        return res.status(403).json({
-          error: "No autorizado para carga manual",
-        });
+        return res.status(403).json({ error: "No autorizado" });
       }
 
-      if (!motivo_manual || !motivo_manual.trim()) {
-        return res.status(400).json({
-          error: "Debe indicar el motivo de la carga manual",
-        });
+      if (!motivo_manual?.trim()) {
+        return res.status(400).json({ error: "Debe indicar el motivo" });
       }
     }
 
@@ -69,17 +78,15 @@ export const createPesada = async (req, res) => {
 
     if (!modo || modo === "AUTOMATICO") {
       try {
-        const { data } = await axios.get(
-          `${process.env.BALANZA_URL}/peso`,
-          { timeout: 2000 }
-        );
+        const { data } = await axios.get(`${process.env.BALANZA_URL}/peso`, {
+          timeout: 2000
+        });
 
         if (data?.disponible && data?.peso_kg != null) {
           pesoBruto = Number(data.peso_kg);
           origen = "BALANZA";
         }
-      } catch {
-      }
+      } catch { }
     }
 
     if (pesoBruto == null) {
@@ -87,36 +94,35 @@ export const createPesada = async (req, res) => {
 
       if (!Number.isFinite(manual) || manual < 0) {
         return res.status(400).json({
-          error: "Peso manual inválido o balanza no disponible",
+          error: "Peso inválido"
         });
       }
 
       pesoBruto = manual;
-      origen = "MANUAL";
     }
 
     const pesada = await Pesada.create({
       tipo_movimiento,
       empresa_id,
       personal_id,
-      material_id,
+      material_general_id,
       vehiculo_id,
       caja_id: cajaFinal,
       peso_bruto_kg: pesoBruto,
       origen,
       usuario_id: usuario_id || null,
       motivo_manual: origen === "MANUAL" ? motivo_manual : null,
+      tara_real_kg: tara_real_kg || null,
+      nro_manifiesto: nro_manifiesto || null,
+      nro_remito: nro_remito || null,
+      peso_declarado_kg: peso_declarado_kg || null
     });
 
-    return res.status(201).json({
-      id: pesada.id,
-      peso_bruto_kg: pesoBruto,
-      origen,
-    });
+    res.status(201).json(pesada);
 
   } catch (err) {
     console.error("ERROR CREATE PESADA:", err);
-    return res.status(500).json({ error: "Error al crear pesada" });
+    res.status(500).json({ error: "Error al crear pesada" });
   }
 };
 
@@ -216,33 +222,35 @@ export const getStockPorMaterial = async (req, res) => {
   try {
     const stock = await sequelize.query(`
       SELECT 
-        m.id AS material_id,
+        m.id AS material_general_id,
         m.nombre,
 
-        /* Stock por pesadas (NETO REAL) */
         COALESCE(SUM(
           CASE 
             WHEN p.tipo_movimiento = 'INGRESO'
-              THEN (p.peso_bruto_kg - (v.tara_kg + COALESCE(c.tara_kg,0)))
+              THEN (p.peso_bruto_kg - (
+                COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg,0)
+              ))
             WHEN p.tipo_movimiento = 'EGRESO'
-              THEN - (p.peso_bruto_kg - (v.tara_kg + COALESCE(c.tara_kg,0)))
+              THEN - (p.peso_bruto_kg - (
+                COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg,0)
+              ))
           END
         ),0)
 
         +
 
-        /* Ajustes manuales */
         COALESCE((
           SELECT SUM(a.cantidad_ajuste)
           FROM ajustes_stock a
-          WHERE a.material_id = m.id
+          WHERE a.material_general_id = m.id
         ),0)
 
         AS stock_total
 
-      FROM materiales m
+      FROM materiales_generales m
 
-      LEFT JOIN pesadas p ON p.material_id = m.id
+      LEFT JOIN pesadas p ON p.material_general_id = m.id
       LEFT JOIN vehiculos v ON v.id = p.vehiculo_id
       LEFT JOIN cajas c ON c.id = p.caja_id
 
@@ -255,29 +263,27 @@ export const getStockPorMaterial = async (req, res) => {
     res.json(stock);
 
   } catch (error) {
-    console.error("ERROR REAL STOCK:", error);
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
 
-
-
 export const crearAjusteStock = async (req, res) => {
   try {
-    const { material_id, cantidad, usuario_id } = req.body;
+    const { material_general_id, cantidad, usuario_id } = req.body;
 
-    if (!material_id || cantidad == null) {
+    if (!material_general_id || cantidad == null) {
       return res.status(400).json({ error: "Datos incompletos" });
     }
 
     await sequelize.query(
       `
-      INSERT INTO ajustes_stock (material_id, cantidad_ajuste, usuario_id)
-      VALUES (:material_id, :cantidad, :usuario_id)
+      INSERT INTO ajustes_stock (material_general_id, cantidad_ajuste, usuario_id)
+      VALUES (:material_general_id, :cantidad, :usuario_id)
       `,
       {
         replacements: {
-          material_id,
+          material_general_id,
           cantidad,
           usuario_id: usuario_id || null,
         },
@@ -287,7 +293,7 @@ export const crearAjusteStock = async (req, res) => {
     res.json({ ok: true });
 
   } catch (error) {
-    console.error("ERROR AJUSTE:", error);
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -300,7 +306,7 @@ export const updatePesada = async (req, res) => {
       tipo_movimiento,
       empresa_id,
       personal_id,
-      material_id,
+      material_general_id,
       vehiculo_id,
       caja_id,
       peso_manual,
@@ -313,7 +319,7 @@ export const updatePesada = async (req, res) => {
       return res.status(404).json({ error: "Pesada no encontrada" });
     }
 
-    if (!tipo_movimiento || !empresa_id || !chofer_id || !material_id) {
+    if (!tipo_movimiento || !empresa_id || !personal_id || !material_general_id) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
@@ -339,11 +345,14 @@ export const updatePesada = async (req, res) => {
       tipo_movimiento,
       empresa_id,
       personal_id,
-      material_id,
+      material_general_id,
       vehiculo_id: vehiculo_id || pesada.vehiculo_id,
       caja_id: caja_id !== undefined ? (caja_id || null) : pesada.caja_id,
       peso_bruto_kg: pesoBruto,
       usuario_id: usuario_id || pesada.usuario_id,
+      nro_manifiesto,
+      nro_remito,
+      peso_declarado_kg
     });
 
     return res.json({ ok: true });

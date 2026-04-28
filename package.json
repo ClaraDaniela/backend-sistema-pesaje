@@ -18,10 +18,11 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "lucide-react": "^0.577.0",
-    "mysql2": "^3.16.1",
+    "mysql2": "^3.22.2",
     "pdfkit": "^0.18.0",
     "recharts": "^3.7.0",
-    "sequelize": "^6.37.7",
+    "sequelize": "^6.37.8",
+    "sequelize-auto": "^0.8.8",
     "serialport": "^13.0.0"
   },
   "devDependencies": {

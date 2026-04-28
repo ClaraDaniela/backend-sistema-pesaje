@@ -1,8 +1,12 @@
-import { Empresa } from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { empresas } = models;
 
 export const getEmpresas = async (req, res) => {
-  const empresas = await Empresa.findAll();
-  res.json(empresas);
+  const data = await empresas.findAll();
+  res.json(data);
 };
 
 export const createEmpresa = async (req, res) => {
@@ -12,6 +16,6 @@ export const createEmpresa = async (req, res) => {
     return res.status(400).json({ error: "Nombre requerido" });
   }
 
-  const empresa = await Empresa.create({ nombre, cuit });
+  const empresa = await empresas.create({ nombre, cuit });
   res.status(201).json(empresa);
 };

@@ -1,4 +1,8 @@
-import { Caja } from "../models/index.js";
+import initModels from "../models/index.js";
+import { sequelize } from "../config/db.js";
+
+const models = initModels(sequelize);
+const { cajas } = models;
 
 export const getCajas = async (req, res) => {
   try {
@@ -10,12 +14,12 @@ export const getCajas = async (req, res) => {
       where.tipo_caja_id = Number(tipo_caja_id);
     }
 
-    const cajas = await Caja.findAll({
+    const data = await cajas.findAll({
       where,
       order: [["codigo", "ASC"]],
     });
 
-    res.json(cajas);
+    res.json(data);
 
   } catch (err) {
     console.error(err);
@@ -30,14 +34,14 @@ export const createCaja = async (req, res) => {
     return res.status(400).json({ error: "Tipo y tara requeridos" });
   }
 
-  const caja = await Caja.create({ tipo, descripcion, tara_kg });
+  const caja = await cajas.create({ tipo, descripcion, tara_kg });
   res.status(201).json(caja);
 };
 
 export const getCajasByTipo = async (req, res) => {
   const { tipo } = req.params;
 
-  const cajas = await Caja.findAll({
+  const cajas = await cajas.findAll({
     where: { tipo },
   });
 
