@@ -10,12 +10,30 @@ export const getEmpresas = async (req, res) => {
 };
 
 export const createEmpresa = async (req, res) => {
-  const { nombre, cuit } = req.body;
+  try {
+    const { nombre, cuit } = req.body;
 
-  if (!nombre) {
-    return res.status(400).json({ error: "Nombre requerido" });
+    if (!nombre) {
+      return res.status(400).json({
+        error: "Nombre requerido",
+      });
+    }
+
+    const empresa = await empresas.create({
+      nombre,
+      cuit,
+    });
+
+    res.status(201).json(empresa);
+
+  } catch (err) {
+    console.error("ERROR REAL:", err);
+
+    console.error("MYSQL:", err?.parent);
+    console.error("SQL MESSAGE:", err?.parent?.sqlMessage);
+
+    res.status(500).json({
+      error: err?.parent?.sqlMessage || err.message,
+    });
   }
-
-  const empresa = await empresas.create({ nombre, cuit });
-  res.status(201).json(empresa);
 };
