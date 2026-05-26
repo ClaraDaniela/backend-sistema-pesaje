@@ -1,95 +1,249 @@
 import ExcelJS from "exceljs";
 import { sequelize } from "../config/db.js";
 
-export const exportStockExcel = async (req, res) => {
+export const exportStockGeneralesExcel = async (req, res) => {
   try {
 
     const data = await sequelize.query(`
-      SELECT 
-        m.id,
-        m.nombre,
+      SELECT
+          mg.id AS material_id,
+          mg.nombre AS material,
 
-        /* ================= STOCK ================= */
-        COALESCE(SUM(
-          CASE 
-            WHEN p.tipo_movimiento = 'INGRESO' THEN 
-              (p.peso_bruto_kg - (COALESCE(v.tara_kg,0) + COALESCE(c.tara_kg,0)))
+          COALESCE(SUM(
+              CASE
+                  WHEN p.tipo_movimiento = 'INGRESO'
+                      THEN (
+                          p.peso_bruto_kg -
+                          CASE
+                              WHEN p.tara_real_kg IS NOT NULL
+                                  THEN p.tara_real_kg
+                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                          END
+                      )
 
-            WHEN p.tipo_movimiento = 'EGRESO' THEN 
-              - (p.peso_bruto_kg - (COALESCE(v.tara_kg,0) + COALESCE(c.tara_kg,0)))
+                  WHEN p.tipo_movimiento = 'EGRESO'
+                      THEN -(
+                          p.peso_bruto_kg -
+                          CASE
+                              WHEN p.tara_real_kg IS NOT NULL
+                                  THEN p.tara_real_kg
+                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                          END
+                      )
 
-            ELSE 0
-          END
-        ),0) AS stock,
+                  ELSE 0
+              END
+          ), 0) AS stock_total
 
-        /* ================= ÚLTIMO USUARIO ================= */
-        ult.usuario
+      FROM materiales_generales mg
 
-      FROM materiales m
+      LEFT JOIN pesadas p
+          ON p.material_general_id = mg.id
 
-      LEFT JOIN pesadas p ON p.material_id = m.id
-      LEFT JOIN vehiculos v ON v.id = p.vehiculo_id
-      LEFT JOIN cajas c ON c.id = p.caja_id
+      LEFT JOIN vehiculos v
+          ON v.id = p.vehiculo_id
 
-      /* SUBQUERY OPTIMIZADO */
-      LEFT JOIN (
-        SELECT i.material_id, u.nombreusuario AS usuario
-        FROM inventario_fisico i
-        LEFT JOIN usuarios u ON u.id = i.usuario_id
-        INNER JOIN (
-          SELECT material_id, MAX(fecha_actualizacion) AS max_fecha
-          FROM inventario_fisico
-          GROUP BY material_id
-        ) ultimos 
-          ON ultimos.material_id = i.material_id 
-         AND ultimos.max_fecha = i.fecha_actualizacion
-      ) ult ON ult.material_id = m.id
+      LEFT JOIN cajas c
+          ON c.id = p.caja_id
 
-      GROUP BY m.id, m.nombre, ult.usuario
-      ORDER BY m.nombre
-    `, { type: sequelize.QueryTypes.SELECT });
+      GROUP BY mg.id, mg.nombre
 
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Stock");
-
-    sheet.columns = [
-      { header: "Material", key: "nombre", width: 30 },
-      { header: "Stock (kg)", key: "stock", width: 20 },
-      { header: "Último usuario", key: "usuario", width: 25 },
-    ];
-
-    sheet.getRow(1).font = { bold: true };
-
-    data.forEach(row => {
-      sheet.addRow({
-        nombre: row.nombre,
-        stock: Number(row.stock) || 0,
-        usuario: row.usuario || "-",
-      });
+      ORDER BY mg.nombre
+    `, {
+      type: sequelize.QueryTypes.SELECT
     });
 
-    sheet.getColumn("stock").numFmt = '#,##0';
+    const workbook = new ExcelJS.Workbook();
 
-    sheet.autoFilter = {
-      from: 'A1',
-      to: 'C1',
+    const sheet = workbook.addWorksheet(
+      "Stock Generales"
+    );
+
+    sheet.columns = [
+      {
+        header: "Material",
+        key: "material",
+        width: 40
+      },
+      {
+        header: "Stock",
+        key: "stock_total",
+        width: 20
+      }
+    ];
+
+    sheet.getRow(1).font = {
+      bold: true
     };
+
+    data.forEach(row => {
+
+      sheet.addRow({
+        material: row.material,
+        stock_total: Number(row.stock_total || 0),
+      });
+
+    });
 
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=stock.xlsx"
+      "attachment; filename=stock_generales.xlsx"
     );
+
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
 
     await workbook.xlsx.write(res);
+
     res.end();
 
   } catch (error) {
-    console.error("ERROR EXPORT STOCK:", error);
-    res.status(500).json({ error: "Error al generar Excel" });
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+};
+
+export const exportStockDescargaExcel = async (req, res) => {
+  try {
+
+    const data = await sequelize.query(`
+      SELECT
+        m.id_materiales_descarga AS material_id,
+        tm.nombre AS categoria,
+        mb.nombre AS material_base,
+        fm.nombre AS forma,
+
+        COALESCE(egresos.total, 0) AS stock_total
+
+      FROM materiales m
+
+      JOIN tipos_material tm
+        ON tm.id = m.tipo_material_id
+
+      LEFT JOIN materiales_base mb
+        ON mb.id = m.material_base_id
+
+      LEFT JOIN formas_material fm
+        ON fm.id = m.forma_material_id
+
+      LEFT JOIN (
+        SELECT
+          ddm.id_materiales AS material_id,
+
+          SUM(
+            (
+              p.peso_bruto_kg -
+              CASE
+                WHEN p.tara_real_kg IS NOT NULL
+                  THEN p.tara_real_kg
+                ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+              END
+            ) * (ddm.porcentaje / 100)
+          ) AS total
+
+        FROM descarga_detalles_materiales ddm
+
+        JOIN descarga_detalles dd
+          ON dd.id_descarga_detalles = ddm.id_descarga_detalles
+
+        JOIN pesadas p
+          ON p.id = dd.pesada_id
+
+        LEFT JOIN vehiculos v
+          ON v.id = p.vehiculo_id
+
+        LEFT JOIN cajas c
+          ON c.id = p.caja_id
+
+        GROUP BY ddm.id_materiales
+
+      ) egresos
+        ON egresos.material_id = m.id_materiales_descarga
+
+      ORDER BY tm.nombre, mb.nombre
+    `, {
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    const workbook = new ExcelJS.Workbook();
+
+    const sheet = workbook.addWorksheet(
+      "Stock Descarga"
+    );
+
+    sheet.columns = [
+      {
+        header: "Categoría",
+        key: "categoria",
+        width: 25
+      },
+      {
+        header: "Material",
+        key: "material_base",
+        width: 30
+      },
+      {
+        header: "Forma",
+        key: "forma",
+        width: 25
+      },
+      {
+        header: "Stock",
+        key: "stock_total",
+        width: 20
+      }
+    ];
+
+    sheet.getRow(1).font = {
+      bold: true
+    };
+
+    data.forEach(row => {
+
+      sheet.addRow({
+        categoria: row.categoria,
+        material_base: row.material_base,
+        forma: row.forma || "-",
+        stock_total: Number(row.stock_total || 0),
+      });
+
+    });
+
+    sheet.getColumn("stock_total").numFmt = '#,##0';
+
+    sheet.autoFilter = {
+      from: 'A1',
+      to: 'D1',
+    };
+
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=stock_descarga.xlsx"
+    );
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    await workbook.xlsx.write(res);
+
+    res.end();
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
   }
 };

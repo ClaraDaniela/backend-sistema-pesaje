@@ -178,29 +178,53 @@ export const getStockDetallado = async (req, res) => {
         COALESCE(fm.nombre, '')   AS forma,
         em.nombre                 AS estado,
 
-        COALESCE(SUM(
-          CASE
-            WHEN p.tipo_movimiento = 'INGRESO'
-              THEN (p.peso_bruto_kg - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
-                   * (ddm.porcentaje / 100)
-            WHEN p.tipo_movimiento = 'EGRESO'
-              THEN -(p.peso_bruto_kg - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
-                   * (ddm.porcentaje / 100)
-          END
-        ), 0) AS stock_total
+        -- Ingresos: vienen de pesadas directamente por material_general_id
+        COALESCE(ingresos.total, 0)
+        -- Egresos: vienen de descarga_detalles con porcentaje por material
+        - COALESCE(egresos.total, 0) AS stock_total
 
       FROM materiales m
-      JOIN tipos_material    tm  ON tm.id  = m.tipo_material_id
-      JOIN estados_material  em  ON em.id  = m.estado_material_id
-      LEFT JOIN materiales_base  mb  ON mb.id  = m.material_base_id
-      LEFT JOIN formas_material  fm  ON fm.id  = m.forma_material_id
-      LEFT JOIN descarga_detalles_materiales ddm ON ddm.id_materiales        = m.id_materiales_descarga
-      LEFT JOIN descarga_detalles            dd  ON dd.id_descarga_detalles  = ddm.id_descarga_detalles
-      LEFT JOIN pesadas   p ON p.id  = dd.pesada_id
-      LEFT JOIN vehiculos v ON v.id  = p.vehiculo_id
-      LEFT JOIN cajas     c ON c.id  = p.caja_id
+      JOIN tipos_material   tm  ON tm.id = m.tipo_material_id
+      JOIN estados_material em  ON em.id = m.estado_material_id
+      LEFT JOIN materiales_base mb ON mb.id = m.material_base_id
+      LEFT JOIN formas_material fm ON fm.id = m.forma_material_id
 
-      GROUP BY m.id_materiales_descarga, tm.nombre, mb.nombre, fm.nombre, em.nombre
+      -- Subquery ingresos: suma neto de todas las pesadas INGRESO
+      -- agrupadas por material_general_id
+      LEFT JOIN (
+        SELECT
+          p.material_general_id,
+          SUM(
+            p.peso_bruto_kg
+            - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0))
+          ) AS total
+        FROM pesadas p
+        JOIN vehiculos v ON v.id = p.vehiculo_id
+        LEFT JOIN cajas c ON c.id = p.caja_id
+        WHERE p.tipo_movimiento = 'INGRESO'
+        GROUP BY p.material_general_id
+      ) ingresos ON ingresos.material_general_id = m.material_base_id
+
+      -- Subquery egresos: suma neto ponderada por porcentaje en descarga_detalles
+      LEFT JOIN (
+        SELECT
+          ddm.id_materiales AS material_id,
+          SUM(
+            (p.peso_bruto_kg
+            - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
+            * (ddm.porcentaje / 100)
+          ) AS total
+        FROM descarga_detalles_materiales ddm
+        JOIN descarga_detalles dd ON dd.id_descarga_detalles = ddm.id_descarga_detalles
+        JOIN pesadas   p ON p.id  = dd.pesada_id
+        JOIN vehiculos v ON v.id  = p.vehiculo_id
+        LEFT JOIN cajas c ON c.id = p.caja_id
+        WHERE p.tipo_movimiento = 'EGRESO'
+        GROUP BY ddm.id_materiales
+      ) egresos ON egresos.material_id = m.id_materiales_descarga
+
+      GROUP BY m.id_materiales_descarga, tm.nombre, mb.nombre, fm.nombre, em.nombre,
+               ingresos.total, egresos.total
       ORDER BY tm.nombre, mb.nombre, fm.nombre`,
       { type: sequelize.QueryTypes.SELECT }
     );

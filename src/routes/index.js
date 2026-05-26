@@ -14,6 +14,7 @@ import usuarioRoute from "./usuarios.routes.js";
 import tiposcajasRoutes from "./tipos_caja.routes.js";
 import descargasRoutes from "./descargas.routes.js";
 import materialesDescargas from "./materiales_descarga.routes.js";
+import stockRoutes from "./stock.routes.js";
 
 const router = Router();
 
@@ -31,6 +32,7 @@ router.use("/login", usuarioRoute);
 router.use("/tipos_caja", tiposcajasRoutes);
 router.use("/descargas", descargasRoutes);
 router.use("/materiales_descarga", materialesDescargas);
+router.use("/stock", stockRoutes);
 
 
 export default router;

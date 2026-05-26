@@ -2,8 +2,12 @@ import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
 
 const models = initModels(sequelize);
-const { descarga_detalles, MaterialDescarga, pesadas } = models;
 
+const {
+  descarga_detalles: DescargaDetalle,
+  descarga_detalles_materiales: MaterialDescarga,
+  pesadas: Pesada
+} = models;
 
 export const createDescarga = async (req, res) => {
   const { pesada_id, responsable, comentarios, materiales } = req.body;
@@ -26,7 +30,8 @@ export const createDescarga = async (req, res) => {
       });
     }
 
-    const ids = materiales.map(m => m.id);
+    const ids = materiales.map(m => m.material_id);
+
     if (ids.length !== new Set(ids).size) {
       return res.status(400).json({
         error: "Materiales duplicados"
@@ -34,7 +39,7 @@ export const createDescarga = async (req, res) => {
     }
 
     for (const mat of materiales) {
-      if (!mat.id || mat.porcentaje <= 0 || mat.kg < 0) {
+      if (!mat.material_id || Number(mat.porcentaje) <= 0) {
         return res.status(400).json({
           error: "Datos de materiales inválidos"
         });
@@ -59,18 +64,18 @@ export const createDescarga = async (req, res) => {
     }, { transaction: t });
 
     for (const mat of materiales) {
+      const kg = (Number(pesada.peso_neto) * Number(mat.porcentaje)) / 100;
+
+
       await MaterialDescarga.create({
         id_descarga_detalles: descarga.id_descarga_detalles,
-        id_materiales_descarga: mat.id,
-        porcentaje: mat.porcentaje,
-        kg: mat.kg
+        id_materiales: mat.material_id,
+        porcentaje: mat.porcentaje
       }, { transaction: t });
     }
-
-    await Pesada.update(
-      { estado: "DESCARGADO" },
-      { where: { id: pesada_id }, transaction: t }
-    );
+    console.log("DescargaDetalle:", DescargaDetalle);
+    console.log("MaterialDescarga:", MaterialDescarga);
+    console.log("Pesada:", Pesada);
 
     await t.commit();
 
@@ -90,7 +95,7 @@ export const getDescargaPorPesada = async (req, res) => {
       include: {
         model: MaterialDescarga,
         through: {
-          attributes: ["porcentaje", "kg"]
+          attributes: ["porcentaje"]
         }
       }
     });

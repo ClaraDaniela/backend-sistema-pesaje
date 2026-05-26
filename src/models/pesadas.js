@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('pesadas', {
     id: {
       autoIncrement: true,
@@ -13,7 +13,7 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: Sequelize.Sequelize.literal('CURRENT_TIMESTAMP')
     },
     tipo_movimiento: {
-      type: DataTypes.ENUM('INGRESO','EGRESO'),
+      type: DataTypes.ENUM('INGRESO', 'EGRESO'),
       allowNull: false
     },
     empresa_id: {
@@ -49,11 +49,11 @@ module.exports = function(sequelize, DataTypes) {
       }
     },
     peso_bruto_kg: {
-      type: DataTypes.DECIMAL(10,2),
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
     origen: {
-      type: DataTypes.ENUM('BALANZA','MANUAL'),
+      type: DataTypes.ENUM('BALANZA', 'MANUAL'),
       allowNull: false
     },
     usuario_id: {
@@ -77,7 +77,7 @@ module.exports = function(sequelize, DataTypes) {
       }
     },
     tara_real_kg: {
-      type: DataTypes.DECIMAL(10,2),
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
       comment: "Tara medida en el momento (si se pesó vacío). NULL = se usa tara fija del vehículo"
     },
@@ -90,15 +90,36 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     peso_declarado_kg: {
-      type: DataTypes.DECIMAL(10,2),
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: true
     },
     diferencia_kg: {
-      type: DataTypes.DECIMAL(10,2),
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: true
     },
     dentro_tolerancia: {
       type: DataTypes.BOOLEAN,
+      allowNull: true
+    },
+    estado: {
+      type: DataTypes.ENUM(
+        'ABIERTA',
+        'CERRADA',
+        'CERRADA_AUTOMATICA'
+      ),
+      allowNull: false,
+      defaultValue: 'ABIERTA'
+    },
+    fecha_cierre: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+
+    modo_salida: {
+      type: DataTypes.ENUM(
+        'AUTOMATICO',
+        'MANUAL'
+      ),
       allowNull: true
     }
   }, {

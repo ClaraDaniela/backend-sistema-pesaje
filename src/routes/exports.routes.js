@@ -1,13 +1,19 @@
 import { Router } from "express";
-import { exportInventarioExcel } from "../export/inventario.js";
-import { exportStockExcel } from "../export/stock.js";
-import { generarPdfPesada } from "../export/pesada.js";
 
+import {exportStockGeneralesExcel, exportStockDescargaExcel} from "../export/stock.js";
+
+import {exportInventarioExcel} from "../export/inventario.js";
+
+import {generarPdfPesada} from "../export/pesada.js";
 
 const router = Router();
 
-router.get("/stock", exportStockExcel);
-router.get("/pesada/:id", generarPdfPesada);
+router.get("/stock-generales", exportStockGeneralesExcel);
+
+router.get("/stock-descarga", exportStockDescargaExcel);
+
 router.get("/inventario", exportInventarioExcel);
+
+router.get("/pesada/:id", generarPdfPesada);
 
 export default router;

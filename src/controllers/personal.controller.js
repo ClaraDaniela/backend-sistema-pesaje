@@ -5,7 +5,14 @@ const models = initModels(sequelize);
 const { personal, tipo_personal } = models;
 
 export const getPersonal = async (req, res) => {
-  const data = await personal.findAll();
+  const data = await personal.findAll({
+    attributes: [
+      ["id_personal", "id"],
+      "nombre",
+      "apellido",
+      "activo"
+    ]
+  });
   res.json(data);
 };
 
@@ -45,6 +52,12 @@ export const createPersonal = async (req, res) => {
 export const getChoferes = async (req, res) => {
   try {
     const choferes = await personal.findAll({
+      attributes: [
+        ["id_personal", "id"],
+        "nombre",
+        "apellido",
+        "activo"
+      ],
       include: [{
         model: tipo_personal,
         as: "id_tipo_personal_tipo_personal",

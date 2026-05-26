@@ -4,42 +4,6 @@ import { sequelize } from "../config/db.js";
 const models = initModels(sequelize);
 const { inventario_fisico } = models;
 
-export const getInventario = async (req, res) => {
-  try {
-    const data = await sequelize.query(`
-      SELECT 
-        m.id AS material_id,
-        m.nombre,
-
-        COALESCE(i.cantidad, 0) AS stock_fisico,
-        i.fecha_actualizacion,
-
-        COALESCE(s.stock_total, 0) AS stock_sistema,
-
-        COALESCE(i.cantidad, 0) - COALESCE(s.stock_total, 0) AS diferencia
-
-      FROM materiales m
-
-      LEFT JOIN inventario_fisico i 
-        ON i.material_id = m.id
-
-      LEFT JOIN (
-        SELECT material_id, SUM(peso_neto) AS stock_total
-        FROM vw_pesadas_con_neto
-        GROUP BY material_id
-      ) s 
-        ON s.material_id = m.id
-
-      ORDER BY m.nombre
-    `);
-
-    res.json(data[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error obteniendo inventario" });
-  }
-};
-
 
 export const guardarInventario = async (req, res) => {
   try {
@@ -70,4 +34,99 @@ export const guardarInventario = async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Error guardando inventario" });
   }
+};
+
+export const getInventario = async (req, res) => {
+
+  try {
+
+    const data = await sequelize.query(
+      `
+      SELECT
+          mg.id AS material_id,
+
+          mg.nombre AS material,
+
+          /* STOCK SISTEMA */
+
+          COALESCE(
+              SUM(
+                  CASE
+
+                      WHEN p.tipo_movimiento = 'INGRESO'
+                          THEN (
+                              p.peso_bruto_kg -
+                              CASE
+                                  WHEN p.tara_real_kg IS NOT NULL
+                                      THEN p.tara_real_kg
+                                  ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                              END
+                          )
+
+                      WHEN p.tipo_movimiento = 'EGRESO'
+                          THEN -(
+                              p.peso_bruto_kg -
+                              CASE
+                                  WHEN p.tara_real_kg IS NOT NULL
+                                      THEN p.tara_real_kg
+                                  ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                              END
+                          )
+
+                      ELSE 0
+
+                  END
+              ),
+              0
+          ) AS stock_sistema,
+
+          inv.cantidad AS stock_fisico,
+
+          inv.fecha_actualizacion,
+
+          u.nombreusuario AS usuario
+
+      FROM materiales_generales mg
+
+      LEFT JOIN pesadas p
+          ON p.material_general_id = mg.id
+
+      LEFT JOIN vehiculos v
+          ON v.id = p.vehiculo_id
+
+      LEFT JOIN cajas c
+          ON c.id = p.caja_id
+
+      LEFT JOIN inventario_fisico inv
+          ON inv.material_id = mg.id
+
+      LEFT JOIN usuarios u
+          ON u.id = inv.usuario_id
+
+      GROUP BY
+          mg.id,
+          mg.nombre,
+          inv.cantidad,
+          inv.fecha_actualizacion,
+          u.nombreusuario
+
+      ORDER BY mg.nombre
+      `,
+      {
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    res.json(data);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
 };
