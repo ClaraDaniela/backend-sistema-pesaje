@@ -73,9 +73,6 @@ export const createDescarga = async (req, res) => {
         porcentaje: mat.porcentaje
       }, { transaction: t });
     }
-    console.log("DescargaDetalle:", DescargaDetalle);
-    console.log("MaterialDescarga:", MaterialDescarga);
-    console.log("Pesada:", Pesada);
 
     await t.commit();
 

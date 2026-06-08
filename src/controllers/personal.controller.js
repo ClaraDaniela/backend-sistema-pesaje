@@ -25,6 +25,9 @@ export const createPersonal = async (req, res) => {
     });
   }
 
+  const nombreNormalizado = nombre.trim().toUpperCase();
+  const apellidoNormalizado = apellido.trim().toUpperCase();
+
   try {
     const tipoPersonal = await tipo_personal.findOne({
       where: { tipo }
@@ -37,12 +40,17 @@ export const createPersonal = async (req, res) => {
     }
 
     const persona = await personal.create({
-      nombre,
-      apellido,
+      nombre: nombreNormalizado,
+      apellido: apellidoNormalizado,
       id_tipo_personal: tipoPersonal.id_tipo_personal
     });
 
-    res.status(201).json(persona);
+    res.status(201).json({
+      id: persona.id_personal,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+      activo: persona.activo
+    });
 
   } catch (error) {
     res.status(500).json({ error: error.message });

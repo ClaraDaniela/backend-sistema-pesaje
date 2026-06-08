@@ -8,7 +8,8 @@ const {
   pesadas: Pesada,
   vehiculos: Vehiculo,
   tipos_vehiculo: TipoVehiculo,
-  cajas: Caja
+  cajas: Caja,
+  materiales_generales: MaterialGeneral
 } = models;
 
 export const createPesada = async (req, res) => {
@@ -128,24 +129,25 @@ export const createPesada = async (req, res) => {
         tara_real_kg !== ""
         ? Number(tara_real_kg)
         : null;
-
+    const material = await MaterialGeneral.findByPk(material_general_id);
+    const esSinCarga = pesoBruto === 0 && material?.nombre === "VACIO";
     const estaVacioAutomatico =
-      Math.abs(pesoBruto - taraTotal) <=
-      toleranciaVacio;
+      Math.abs(pesoBruto - taraTotal) <= toleranciaVacio;
+
 
     const cerrarManual =
       taraManual != null &&
       Number.isFinite(taraManual);
 
     const estadoFinal =
-      cerrarManual || estaVacioAutomatico
+      cerrarManual || estaVacioAutomatico || esSinCarga
         ? "CERRADA_AUTOMATICA"
         : "ABIERTA";
 
     const taraFinal =
       cerrarManual
         ? taraManual
-        : estaVacioAutomatico
+        : estaVacioAutomatico || esSinCarga
           ? pesoBruto
           : null;
 

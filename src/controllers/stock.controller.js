@@ -1,27 +1,18 @@
 import { sequelize } from "../config/db.js";
 
 export const getStockMaterialesGenerales = async (req, res) => {
-  try {
-    const rows = await sequelize.query(
-      `
+    try {
+
+        const rows = await sequelize.query(
+            `
       SELECT
-          mg.id                         AS material_id,
-          mg.nombre                    AS material,
+          mg.id AS material_id,
+          mg.nombre AS material,
 
           COALESCE(SUM(
               CASE
                   WHEN p.tipo_movimiento = 'INGRESO'
                       THEN (
-                          p.peso_bruto_kg -
-                          CASE
-                              WHEN p.tara_real_kg IS NOT NULL
-                                  THEN p.tara_real_kg
-                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                          END
-                      )
-
-                  WHEN p.tipo_movimiento = 'EGRESO'
-                      THEN -(
                           p.peso_bruto_kg -
                           CASE
                               WHEN p.tara_real_kg IS NOT NULL
@@ -52,27 +43,32 @@ export const getStockMaterialesGenerales = async (req, res) => {
       ORDER BY
           mg.nombre ASC
       `,
-      {
-        type: sequelize.QueryTypes.SELECT,
-      }
-    );
+            {
+                type: sequelize.QueryTypes.SELECT,
+            }
+        );
 
-    res.json(rows);
+        res.json(rows);
 
-  } catch (error) {
-    console.error("ERROR STOCK GENERALES:", error);
+    } catch (error) {
 
-    res.status(500).json({
-      error: error.message,
-    });
-  }
+        console.error(
+            "ERROR STOCK GENERALES:",
+            error
+        );
+
+        res.status(500).json({
+            error: error.message,
+        });
+
+    }
 };
 
 
 export const getStockMaterialesDescarga = async (req, res) => {
-  try {
-    const rows = await sequelize.query(
-      `
+    try {
+        const rows = await sequelize.query(
+            `
       SELECT
           m.id_materiales_descarga     AS material_id,
 
@@ -133,18 +129,18 @@ export const getStockMaterialesDescarga = async (req, res) => {
           mb.nombre ASC,
           fm.nombre ASC
       `,
-      {
-        type: sequelize.QueryTypes.SELECT,
-      }
-    );
+            {
+                type: sequelize.QueryTypes.SELECT,
+            }
+        );
 
-    res.json(rows);
+        res.json(rows);
 
-  } catch (error) {
-    console.error("ERROR STOCK DESCARGA:", error);
+    } catch (error) {
+        console.error("ERROR STOCK DESCARGA:", error);
 
-    res.status(500).json({
-      error: error.message,
-    });
-  }
+        res.status(500).json({
+            error: error.message,
+        });
+    }
 };

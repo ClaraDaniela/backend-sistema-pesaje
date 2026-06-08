@@ -40,9 +40,6 @@ export const generarPdfPesada = async (req, res) => {
 
     doc.pipe(res);
 
-    // =========================
-    // LOGO
-    // =========================
     try {
       const logoPath = path.join(
         __dirname,
@@ -61,9 +58,6 @@ export const generarPdfPesada = async (req, res) => {
 
     doc.moveDown();
 
-    // =========================
-    // HEADER
-    // =========================
     doc
       .fontSize(9)
       .text("SERVIECO", { align: "center" })
@@ -86,8 +80,13 @@ export const generarPdfPesada = async (req, res) => {
         .text(String(value), { align: "right" });
     };
 
-    const formatKg = (n) =>
-      Number(n || 0).toLocaleString("es-AR");
+    const formatKg = (n) => {
+      const num = Number(n);
+
+      return Number.isFinite(num)
+        ? num.toLocaleString("es-AR")
+        : "—";
+    };
 
     const fecha = new Date(p.fecha);
 
@@ -103,9 +102,6 @@ export const generarPdfPesada = async (req, res) => {
     doc.moveDown();
     linea();
 
-    // =========================
-    // LOGICA PRINCIPAL
-    // =========================
     const ingreso = p.peso_bruto_kg;
 
     const egreso = p.tara_real_kg
@@ -114,19 +110,31 @@ export const generarPdfPesada = async (req, res) => {
 
     const neto = ingreso - egreso;
 
-    // =========================
-    // DATOS CLAVE
-    // =========================
-    fila("INGRESO", `${formatKg(ingreso)} kg`);
-    fila("EGRESO", `${formatKg(egreso)} kg`);
+    fila(
+      "INGRESO",
+      formatKg(ingreso) === "—"
+        ? "—"
+        : `${formatKg(ingreso)} kg`
+    );
+
+    fila(
+      "EGRESO",
+      formatKg(egreso) === "—"
+        ? "—"
+        : `${formatKg(egreso)} kg`
+    );
 
     doc.moveDown();
 
     doc
       .fontSize(12)
       .text("NETO", 10, doc.y, { continued: true })
-      .text(`${formatKg(neto)} kg`, { align: "right" });
-
+      .text(
+        formatKg(neto) === "—"
+          ? "—"
+          : `${formatKg(neto)} kg`,
+        { align: "right" }
+      );
 
     doc.moveDown();
     linea();

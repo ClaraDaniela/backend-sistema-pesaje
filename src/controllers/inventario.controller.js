@@ -9,7 +9,7 @@ export const guardarInventario = async (req, res) => {
   try {
     const { material_id, cantidad, usuario_id } = req.body;
 
-    const existente = await InventarioFisico.findOne({
+    const existente = await inventario_fisico.findOne({
       where: { material_id },
     });
 
@@ -20,7 +20,7 @@ export const guardarInventario = async (req, res) => {
         fecha_actualizacion: new Date(),
       });
     } else {
-      await InventarioFisico.create({
+      await inventario_fisico.create({
         material_id,
         cantidad,
         usuario_id,

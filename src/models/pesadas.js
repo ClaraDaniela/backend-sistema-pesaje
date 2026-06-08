@@ -93,14 +93,6 @@ module.exports = function (sequelize, DataTypes) {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true
     },
-    diferencia_kg: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: true
-    },
-    dentro_tolerancia: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true
-    },
     estado: {
       type: DataTypes.ENUM(
         'ABIERTA',
@@ -126,7 +118,9 @@ module.exports = function (sequelize, DataTypes) {
     sequelize,
     tableName: 'pesadas',
     hasTrigger: true,
-    timestamps: false,
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
     indexes: [
       {
         name: "PRIMARY",

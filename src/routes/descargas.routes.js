@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  createDescarga,
-  getDescargaPorPesada
-} from "../controllers/descargas.controller.js";
+import {createDescarga, getDescargaPorPesada} from "../controllers/descargas.controller.js";
 
 const router = express.Router();
 
