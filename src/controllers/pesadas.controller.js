@@ -181,7 +181,7 @@ export const createPesada = async (req, res) => {
       modo_salida:
         cerrarManual
           ? "MANUAL"
-          : estaVacioAutomatico
+          : estaVacioAutomatico || esSinCarga
             ? "AUTOMATICO"
             : null,
 
