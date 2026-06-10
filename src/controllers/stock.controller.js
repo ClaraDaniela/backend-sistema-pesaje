@@ -20,7 +20,15 @@ export const getStockMaterialesGenerales = async (req, res) => {
                               ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
                           END
                       )
-
+                  WHEN p.tipo_movimiento = 'EGRESO'
+                      THEN -(
+                          p.peso_bruto_kg -
+                          CASE
+                              WHEN p.tara_real_kg IS NOT NULL
+                                  THEN p.tara_real_kg
+                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                          END
+                      )
                   ELSE 0
               END
           ), 0) AS stock_total
@@ -78,14 +86,27 @@ export const getStockMaterialesDescarga = async (req, res) => {
           em.nombre                    AS estado,
 
           COALESCE(SUM(
-              (
-                  p.peso_bruto_kg -
-                  CASE
-                      WHEN p.tara_real_kg IS NOT NULL
-                          THEN p.tara_real_kg
-                      ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                  END
-              ) * (ddm.porcentaje / 100)
+              CASE
+                  WHEN p.tipo_movimiento = 'INGRESO'
+                      THEN (
+                          p.peso_bruto_kg -
+                          CASE
+                              WHEN p.tara_real_kg IS NOT NULL
+                                  THEN p.tara_real_kg
+                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                          END
+                      ) * (ddm.porcentaje / 100)
+                  WHEN p.tipo_movimiento = 'EGRESO'
+                      THEN -(
+                          p.peso_bruto_kg -
+                          CASE
+                              WHEN p.tara_real_kg IS NOT NULL
+                                  THEN p.tara_real_kg
+                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                          END
+                      ) * (ddm.porcentaje / 100)
+                  ELSE 0
+              END
           ), 0) AS stock_total
 
       FROM materiales m

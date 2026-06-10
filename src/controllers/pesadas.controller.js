@@ -95,8 +95,8 @@ export const createPesada = async (req, res) => {
     if (!modo || modo === "AUTOMATICO") {
       try {
         const { data } = await axios.get(
-          `${process.env.BALANZA_URL}/peso`,
-          { timeout: 2000 }
+          `http://localhost:${process.env.PORT || 3000}/api/balanza/peso`,
+          { timeout: 5000 }
         );
 
         if (data?.disponible && data?.peso_kg != null) {
@@ -111,7 +111,7 @@ export const createPesada = async (req, res) => {
 
       if (!Number.isFinite(manual) || manual < 0) {
         return res.status(400).json({
-          error: "Peso inválido"
+          error: "No se pudo obtener peso de balanza y no se proporcionó peso manual"
         });
       }
 
@@ -131,13 +131,15 @@ export const createPesada = async (req, res) => {
         : null;
     const material = await MaterialGeneral.findByPk(material_general_id);
     const esSinCarga = pesoBruto === 0 && material?.nombre === "VACIO";
-    const estaVacioAutomatico =
-      Math.abs(pesoBruto - taraTotal) <= toleranciaVacio;
-
 
     const cerrarManual =
       taraManual != null &&
       Number.isFinite(taraManual);
+
+    const estaVacioAutomatico =
+      !cerrarManual &&
+      Math.abs(pesoBruto - taraTotal) <= toleranciaVacio;
+
 
     const estadoFinal =
       cerrarManual || estaVacioAutomatico || esSinCarga

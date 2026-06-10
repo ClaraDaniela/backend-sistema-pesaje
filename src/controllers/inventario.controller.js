@@ -37,71 +37,54 @@ export const guardarInventario = async (req, res) => {
 };
 
 export const getInventario = async (req, res) => {
-
   try {
-
     const data = await sequelize.query(
       `
       SELECT
           mg.id AS material_id,
-
           mg.nombre AS material,
-
-          /* STOCK SISTEMA */
 
           COALESCE(
               SUM(
                   CASE
-
                       WHEN p.tipo_movimiento = 'INGRESO'
-                          THEN (
+                          THEN GREATEST(
                               p.peso_bruto_kg -
                               CASE
-                                  WHEN p.tara_real_kg IS NOT NULL
-                                      THEN p.tara_real_kg
+                                  WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg
                                   ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                              END
+                              END,
+                              0
                           )
-
                       WHEN p.tipo_movimiento = 'EGRESO'
-                          THEN -(
+                          THEN -GREATEST(
                               p.peso_bruto_kg -
                               CASE
-                                  WHEN p.tara_real_kg IS NOT NULL
-                                      THEN p.tara_real_kg
+                                  WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg
                                   ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                              END
+                              END,
+                              0
                           )
-
                       ELSE 0
-
                   END
               ),
               0
           ) AS stock_sistema,
 
           inv.cantidad AS stock_fisico,
-
           inv.fecha_actualizacion,
-
           u.nombreusuario AS usuario
 
       FROM materiales_generales mg
 
       LEFT JOIN pesadas p
           ON p.material_general_id = mg.id
+          AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
 
-      LEFT JOIN vehiculos v
-          ON v.id = p.vehiculo_id
-
-      LEFT JOIN cajas c
-          ON c.id = p.caja_id
-
-      LEFT JOIN inventario_fisico inv
-          ON inv.material_id = mg.id
-
-      LEFT JOIN usuarios u
-          ON u.id = inv.usuario_id
+      LEFT JOIN vehiculos v ON v.id = p.vehiculo_id
+      LEFT JOIN cajas c ON c.id = p.caja_id
+      LEFT JOIN inventario_fisico inv ON inv.material_id = mg.id
+      LEFT JOIN usuarios u ON u.id = inv.usuario_id
 
       GROUP BY
           mg.id,
@@ -112,21 +95,13 @@ export const getInventario = async (req, res) => {
 
       ORDER BY mg.nombre
       `,
-      {
-        type: sequelize.QueryTypes.SELECT
-      }
+      { type: sequelize.QueryTypes.SELECT }
     );
 
     res.json(data);
 
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      error: error.message
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 };
