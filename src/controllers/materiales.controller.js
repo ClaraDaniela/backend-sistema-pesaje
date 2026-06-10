@@ -9,10 +9,7 @@ export const getMateriales = async (req, res) => {
   try {
 
     const data = await materiales_generales.findAll({
-      attributes: [
-        ["id", "id"],
-        "nombre"
-      ],
+      attributes: ["id", "nombre"],
       order: [["nombre", "ASC"]]
     });
 
@@ -37,9 +34,10 @@ export const createMaterial = async (req, res) => {
     const nuevo = await materiales_generales.create({ nombre: nombreNormalizado });
 
     res.status(201).json({
-      id: nuevo.id_material_general,
+      id: nuevo.id,
       nombre: nuevo.nombre
     });
+
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
