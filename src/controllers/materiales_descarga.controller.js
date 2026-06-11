@@ -1,5 +1,6 @@
 import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
+import { handleControllerError } from "./utils/response.js";
 
 const models = initModels(sequelize);
 
@@ -40,12 +41,6 @@ export const createMaterialDescarga = async (req, res) => {
       forma_material_id
     } = req.body;
 
-    if (!tipo_material_id || !estado_material_id || !material_base_id) {
-      return res.status(400).json({
-        error: "Faltan campos obligatorios"
-      });
-    }
-
     const nuevo = await materiales.create({
       tipo_material_id,
       estado_material_id,
@@ -55,7 +50,7 @@ export const createMaterialDescarga = async (req, res) => {
 
     res.status(201).json(nuevo);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al crear el material de descarga");
   }
 };
 
@@ -79,7 +74,7 @@ export const getMaterialDescargaById = async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener el material de descarga");
   }
 };
 
@@ -98,7 +93,7 @@ export const updateMaterialDescarga = async (req, res) => {
 
     res.json(material);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al actualizar el material de descarga");
   }
 };
 
@@ -117,7 +112,7 @@ export const deleteMaterialDescarga = async (req, res) => {
 
     res.json({ message: "Eliminado" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al eliminar el material de descarga");
   }
 };
 
@@ -129,7 +124,7 @@ export const getTiposMaterial = async (req, res) => {
     });
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener los tipos de material");
   }
 };
 
@@ -164,7 +159,7 @@ export const getCombinacionesMaterial = async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener las combinaciones de material");
   }
 };
 
@@ -231,8 +226,7 @@ export const getStockDetallado = async (req, res) => {
 
     res.json(rows);
   } catch (error) {
-    console.error("ERROR STOCK DETALLADO:", error);
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener el stock detallado");
   }
 };
 
@@ -280,8 +274,7 @@ export const getInventarioDetallado = async (req, res) => {
 
     res.json(rows);
   } catch (error) {
-    console.error("ERROR INVENTARIO DETALLADO:", error);
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener el inventario detallado");
   }
 };
 
@@ -308,7 +301,6 @@ export const upsertInventario = async (req, res) => {
 
     res.json({ ok: true });
   } catch (error) {
-    console.error("ERROR UPSERT INVENTARIO:", error);
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al actualizar el inventario");
   }
 };

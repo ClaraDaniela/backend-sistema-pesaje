@@ -1,5 +1,6 @@
 import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
+import { handleControllerError } from "./utils/response.js";
 
 const models = initModels(sequelize);
 const { materiales_generales } = models;
@@ -24,10 +25,6 @@ export const getMateriales = async (req, res) => {
 export const createMaterial = async (req, res) => {
   try {
     const { nombre } = req.body;
-
-    if (!nombre) {
-      return res.status(400).json({ error: "Nombre requerido" });
-    }
 
     const nombreNormalizado = nombre.trim().toUpperCase();
 

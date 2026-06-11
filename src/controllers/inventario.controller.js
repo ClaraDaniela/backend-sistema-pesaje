@@ -1,5 +1,6 @@
 import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
+import { handleControllerError } from "./utils/response.js";
 
 const models = initModels(sequelize);
 const { inventario_fisico } = models;
@@ -31,8 +32,7 @@ export const guardarInventario = async (req, res) => {
     res.json({ ok: true });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error guardando inventario" });
+    return handleControllerError(res, err, "Error guardando inventario");
   }
 };
 
@@ -101,7 +101,6 @@ export const getInventario = async (req, res) => {
     res.json(data);
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    return handleControllerError(res, error, "Error al obtener el inventario");
   }
 };

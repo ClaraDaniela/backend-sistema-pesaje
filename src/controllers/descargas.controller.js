@@ -15,10 +15,6 @@ export const createDescarga = async (req, res) => {
   const t = await sequelize.transaction();
 
   try {
-    if (!pesada_id || !materiales || !materiales.length) {
-      return res.status(400).json({ error: "Datos incompletos" });
-    }
-
     const total = materiales.reduce(
       (acc, m) => acc + Number(m.porcentaje || 0),
       0
@@ -36,14 +32,6 @@ export const createDescarga = async (req, res) => {
       return res.status(400).json({
         error: "Materiales duplicados"
       });
-    }
-
-    for (const mat of materiales) {
-      if (!mat.material_id || Number(mat.porcentaje) <= 0) {
-        return res.status(400).json({
-          error: "Datos de materiales inválidos"
-        });
-      }
     }
 
     const pesada = await Pesada.findByPk(pesada_id);

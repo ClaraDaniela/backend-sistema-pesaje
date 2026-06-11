@@ -19,22 +19,26 @@ import rolesRouter from "./roles.router.js";
 
 const router = Router();
 
-router.use("/empresas", empresasRoutes);
-router.use("/personal", personalRoutes);
-router.use("/materiales", materialesRoutes);
-router.use("/vehiculos", vehiculosRoutes);
-router.use("/cajas", cajasRoutes);
-router.use("/pesadas", pesadasRoutes);
-router.use("/balanza", balanzaRoutes);
-router.use("/tipos_vehiculo", tiposvehiculoRoutes);
-router.use("/inventario", inventario);
-router.use("/export", exportRoutes);
-router.use("/login", usuarioRoute);
-router.use("/tipos_caja", tiposcajasRoutes);
-router.use("/descargas", descargasRoutes);
-router.use("/materiales_descarga", materialesDescargas);
-router.use("/stock", stockRoutes);
-router.use("/roles", rolesRouter);
+const apiV1 = Router();
 
+apiV1.use("/empresas", empresasRoutes);
+apiV1.use("/personal", personalRoutes);
+apiV1.use("/materiales", materialesRoutes);
+apiV1.use("/vehiculos", vehiculosRoutes);
+apiV1.use("/cajas", cajasRoutes);
+apiV1.use("/pesadas", pesadasRoutes);
+apiV1.use("/balanza", balanzaRoutes);
+apiV1.use("/tipos_vehiculo", tiposvehiculoRoutes);
+apiV1.use("/inventario", inventario);
+apiV1.use("/export", exportRoutes);
+apiV1.use("/login", usuarioRoute);
+apiV1.use("/tipos_caja", tiposcajasRoutes);
+apiV1.use("/descargas", descargasRoutes);
+apiV1.use("/materiales_descarga", materialesDescargas);
+apiV1.use("/stock", stockRoutes);
+apiV1.use("/roles", rolesRouter);
+
+router.use("/v1", apiV1);
+router.use("/", apiV1);
 
 export default router;

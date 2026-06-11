@@ -8,12 +8,6 @@ export const createVehiculo = async (req, res) => {
   try {
     const { patente, descripcion, tara_kg, tipo_vehiculo_id } = req.body;
 
-    if (!patente || tara_kg == null || !tipo_vehiculo_id) {
-      return res.status(400).json({
-        error: "Patente, tara y tipo de vehículo son obligatorios",
-      });
-    }
-
     const vehiculo = await vehiculos.create({
       patente,
       descripcion,

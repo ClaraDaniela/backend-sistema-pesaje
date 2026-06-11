@@ -36,24 +36,6 @@ export const createCaja = async (req, res) => {
       patente
     } = req.body;
 
-    if (!tipo_caja_id) {
-      return res.status(400).json({
-        error: "Tipo de caja requerido"
-      });
-    }
-
-    if (!codigo?.trim()) {
-      return res.status(400).json({
-        error: "Código requerido"
-      });
-    }
-
-    if (tara_kg == null || isNaN(tara_kg)) {
-      return res.status(400).json({
-        error: "Tara requerida"
-      });
-    }
-
     const caja = await cajas.create({
       tipo_caja_id: Number(tipo_caja_id),
       codigo: codigo.trim(),

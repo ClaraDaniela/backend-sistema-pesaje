@@ -51,12 +51,6 @@ export const crearUsuario = async (req, res) => {
   try {
     const { nombreusuario, password, email, rol_id } = req.body;
 
-    if (!nombreusuario || !password || !rol_id) {
-      return res.status(400).json({
-        error: "nombreusuario, password y rol_id son obligatorios"
-      });
-    }
-
     const existe = await usuarios.findOne({
       where: { nombreusuario }
     });

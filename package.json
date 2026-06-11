@@ -2,11 +2,15 @@
   "name": "backend-pesaje",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/app.js",
   "scripts": {
     "dev": "nodemon src/app.js",
     "start": "node src/app.js",
-    "type": "module"
+    "start:prod": "cross-env NODE_ENV=production node src/app.js",
+    "test": "node --test test/**/*.mjs"
+  },
+  "engines": {
+    "node": ">=18.18.0"
   },
   "keywords": [],
   "author": "",
@@ -16,15 +20,16 @@
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "cross-env": "^7.0.0",
     "dotenv": "^17.2.3",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "lucide-react": "^0.577.0",
+    "express-rate-limit": "^7.0.0",
+    "express-validator": "^7.0.0",
+    "helmet": "^8.1.1",
     "mysql2": "^3.22.2",
     "pdfkit": "^0.18.0",
-    "recharts": "^3.7.0",
     "sequelize": "^6.37.8",
-    "sequelize-auto": "^0.8.8",
     "serialport": "^13.0.0"
   },
   "devDependencies": {

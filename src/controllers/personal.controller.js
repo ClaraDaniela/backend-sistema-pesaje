@@ -19,12 +19,6 @@ export const getPersonal = async (req, res) => {
 export const createPersonal = async (req, res) => {
   const { nombre, apellido, tipo } = req.body;
 
-  if (!nombre || !apellido || !tipo) {
-    return res.status(400).json({
-      error: "Nombre, apellido y tipo requeridos"
-    });
-  }
-
   const nombreNormalizado = nombre.trim().toUpperCase();
   const apellidoNormalizado = apellido.trim().toUpperCase();
 

@@ -1,4 +1,5 @@
 import { sequelize } from "../config/db.js";
+import { handleControllerError } from "./utils/response.js";
 
 export const getStockMaterialesGenerales = async (req, res) => {
     try {
@@ -59,16 +60,7 @@ export const getStockMaterialesGenerales = async (req, res) => {
         res.json(rows);
 
     } catch (error) {
-
-        console.error(
-            "ERROR STOCK GENERALES:",
-            error
-        );
-
-        res.status(500).json({
-            error: error.message,
-        });
-
+        return handleControllerError(res, error, "Error al obtener el stock general");
     }
 };
 
@@ -158,10 +150,6 @@ export const getStockMaterialesDescarga = async (req, res) => {
         res.json(rows);
 
     } catch (error) {
-        console.error("ERROR STOCK DESCARGA:", error);
-
-        res.status(500).json({
-            error: error.message,
-        });
+        return handleControllerError(res, error, "Error al obtener el stock por descarga");
     }
 };
