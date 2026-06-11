@@ -205,8 +205,8 @@ export const getStockDetallado = async (req, res) => {
         SELECT
           ddm.id_materiales AS material_id,
           SUM(
-            (p.peso_bruto_kg
-            - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
+            ((COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)) 
+            - p.peso_bruto_kg)
             * (ddm.porcentaje / 100)
           ) AS total
         FROM descarga_detalles_materiales ddm
@@ -246,7 +246,7 @@ export const getInventarioDetallado = async (req, res) => {
               THEN (p.peso_bruto_kg - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
                    * (ddm.porcentaje / 100)
             WHEN p.tipo_movimiento = 'EGRESO'
-              THEN -(p.peso_bruto_kg - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
+              THEN (p.peso_bruto_kg - (COALESCE(p.tara_real_kg, v.tara_kg) + COALESCE(c.tara_kg, 0)))
                    * (ddm.porcentaje / 100)
           END
         ), 0)                    AS stock_sistema,
