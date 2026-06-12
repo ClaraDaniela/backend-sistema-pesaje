@@ -1,6 +1,7 @@
 import axios from "axios";
 import initModels from "../models/index.js";
 import { sequelize } from "../config/db.js";
+import { obtenerPesoBalanza } from "./balanza.controller.js";
 
 const models = initModels(sequelize);
 
@@ -94,13 +95,9 @@ export const createPesada = async (req, res) => {
 
     if (!modo || modo === "AUTOMATICO") {
       try {
-        const { data } = await axios.get(
-          `http://localhost:${process.env.PORT || 3000}/api/balanza/peso`,
-          { timeout: 5000 }
-        );
-
-        if (data?.disponible && data?.peso_kg != null) {
-          pesoBruto = Number(data.peso_kg);
+        const bData = await obtenerPesoBalanza();
+        if (bData?.disponible && bData?.peso_kg != null) {
+          pesoBruto = Number(bData.peso_kg);
           origen = "BALANZA";
         }
       } catch { }

@@ -109,15 +109,18 @@ const balanzaDiscovery = new BalanzaDiscovery();
 
 // ========== CONTROLADOR ==========
 
-export const getPeso = async (req, res) => {
+/**
+ * Lógica compartida para obtener el peso sin depender de Express (req, res)
+ */
+export const obtenerPesoBalanza = async () => {
   try {
     const balanzaURL = await balanzaDiscovery.obtenerURL();
     
     if (!balanzaURL) {
-      return res.json({ 
+      return { 
         disponible: false, 
         peso_kg: null 
-      });
+      };
     }
 
     const { data } = await axios.get(`${balanzaURL}/peso`, { 
@@ -125,19 +128,19 @@ export const getPeso = async (req, res) => {
     });
 
     if (!data || data.valor == null) {
-      return res.json({ 
+      return { 
         disponible: false, 
         peso_kg: null 
-      });
+      };
     }
 
-    res.json({
+    return {
       disponible: true,
       peso_kg: Number(data.valor),
       unidad: data.unidad || 'kg',
       estable: data.estable || false,
       timestamp: data.timestamp
-    });
+    };
 
   } catch (error) {
     console.error("Error obteniendo peso:", error.message);
@@ -146,9 +149,14 @@ export const getPeso = async (req, res) => {
       await balanzaDiscovery.refrescar();
     }
     
-    res.json({ 
+    return { 
       disponible: false, 
       peso_kg: null 
-    });
+    };
   }
+};
+
+export const getPeso = async (req, res) => {
+  const result = await obtenerPesoBalanza();
+  res.json(result);
 };

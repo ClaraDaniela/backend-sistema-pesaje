@@ -27,8 +27,8 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isProduction ? 100 : 200,
+  windowMs: 1 * 60 * 1000, // Ventana de 1 minuto
+  max: 1000, // Aumentamos a 1000 peticiones por minuto para permitir el polling de la balanza
   standardHeaders: true,
   legacyHeaders: false,
 });
