@@ -40,59 +40,42 @@ export const getInventario = async (req, res) => {
   try {
     const data = await sequelize.query(
       `
+      WITH stock_calculado AS (
+          SELECT
+              p.material_general_id,
+              SUM(
+                  CASE 
+                      WHEN p.tipo_movimiento = 'INGRESO' 
+                          THEN ABS(p.peso_bruto_kg - COALESCE(p.tara_real_kg, v.tara_kg + COALESCE(c.tara_kg, 0)))
+                      WHEN p.tipo_movimiento = 'EGRESO' 
+                          THEN -ABS(p.peso_bruto_kg - COALESCE(p.tara_real_kg, v.tara_kg + COALESCE(c.tara_kg, 0)))
+                      ELSE 0 
+                  END
+              ) AS total_sistema
+          FROM pesadas p
+          JOIN vehiculos v ON v.id = p.vehiculo_id
+          LEFT JOIN cajas c ON c.id = p.caja_id
+          WHERE p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+          GROUP BY p.material_general_id
+      ),
+      inventario_agregado AS (
+          SELECT mb.nombre, SUM(inf.cantidad) as cantidad, MAX(inf.fecha_actualizacion) as fecha_actualizacion, MAX(inf.usuario_id) as usuario_id
+          FROM inventario_fisico inf
+          JOIN materiales m ON m.id_materiales_descarga = inf.material_id
+          JOIN materiales_base mb ON mb.id = m.material_base_id
+          GROUP BY mb.nombre
+      )
       SELECT
           mg.id AS material_id,
           mg.nombre AS material,
-
-          COALESCE(
-              SUM(
-                  CASE
-                      WHEN p.tipo_movimiento = 'INGRESO'
-                          THEN GREATEST(
-                              p.peso_bruto_kg -
-                              CASE
-                                  WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg
-                                  ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                              END,
-                              0
-                          )
-                      WHEN p.tipo_movimiento = 'EGRESO'
-                          THEN -GREATEST(
-                              p.peso_bruto_kg -
-                              CASE
-                                  WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg
-                                  ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                              END,
-                              0
-                          )
-                      ELSE 0
-                  END
-              ),
-              0
-          ) AS stock_sistema,
-
+          COALESCE(sc.total_sistema, 0) AS stock_sistema,
           inv.cantidad AS stock_fisico,
           inv.fecha_actualizacion,
           u.nombreusuario AS usuario
-
       FROM materiales_generales mg
-
-      LEFT JOIN pesadas p
-          ON p.material_general_id = mg.id
-          AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
-
-      LEFT JOIN vehiculos v ON v.id = p.vehiculo_id
-      LEFT JOIN cajas c ON c.id = p.caja_id
-      LEFT JOIN inventario_fisico inv ON inv.material_id = mg.id
+      LEFT JOIN stock_calculado sc ON sc.material_general_id = mg.id
+      LEFT JOIN inventario_agregado inv ON UPPER(TRIM(inv.nombre)) = UPPER(TRIM(mg.nombre))
       LEFT JOIN usuarios u ON u.id = inv.usuario_id
-
-      GROUP BY
-          mg.id,
-          mg.nombre,
-          inv.cantidad,
-          inv.fecha_actualizacion,
-          u.nombreusuario
-
       ORDER BY mg.nombre
       `,
       { type: sequelize.QueryTypes.SELECT }

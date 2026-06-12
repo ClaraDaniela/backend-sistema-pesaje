@@ -6,51 +6,52 @@ export const getStockMaterialesGenerales = async (req, res) => {
 
         const rows = await sequelize.query(
             `
-      SELECT
-          mg.id AS material_id,
-          mg.nombre AS material,
+        SELECT
+            mg.id AS material_id,
+            mg.nombre AS material,
 
-          COALESCE(SUM(
-              CASE
-                  WHEN p.tipo_movimiento = 'INGRESO'
-                      THEN (
-                          p.peso_bruto_kg -
-                          CASE
-                              WHEN p.tara_real_kg IS NOT NULL
-                                  THEN p.tara_real_kg
-                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                          END
-                      )
-                  WHEN p.tipo_movimiento = 'EGRESO'
-                      THEN -(
-                          p.peso_bruto_kg -
-                          CASE
-                              WHEN p.tara_real_kg IS NOT NULL
-                                  THEN p.tara_real_kg
-                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                          END
-                      )
-                  ELSE 0
-              END
-          ), 0) AS stock_total
+            COALESCE(SUM(
+                CASE
+                    WHEN p.tipo_movimiento = 'INGRESO'
+                        THEN (
+                            p.peso_bruto_kg -
+                            CASE
+                                WHEN p.tara_real_kg IS NOT NULL
+                                    THEN p.tara_real_kg
+                                ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                            END
+                        )
+                    WHEN p.tipo_movimiento = 'EGRESO'
+                        THEN -(
+                            p.peso_bruto_kg -
+                            CASE
+                                WHEN p.tara_real_kg IS NOT NULL
+                                    THEN p.tara_real_kg
+                                ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                            END
+                        )
+                    ELSE 0
+                END
+            ), 0) AS stock_total
 
-      FROM materiales_generales mg
+        FROM materiales_generales mg
 
-      LEFT JOIN pesadas p
-          ON p.material_general_id = mg.id
+        LEFT JOIN pesadas p
+            ON p.material_general_id = mg.id
+            AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
 
-      LEFT JOIN vehiculos v
-          ON v.id = p.vehiculo_id
+        LEFT JOIN vehiculos v
+            ON v.id = p.vehiculo_id
 
-      LEFT JOIN cajas c
-          ON c.id = p.caja_id
+        LEFT JOIN cajas c
+            ON c.id = p.caja_id
 
-      GROUP BY
-          mg.id,
-          mg.nombre
+        GROUP BY
+            mg.id,
+            mg.nombre
 
-      ORDER BY
-          mg.nombre ASC
+        ORDER BY
+            mg.nombre ASC
       `,
             {
                 type: sequelize.QueryTypes.SELECT,
@@ -151,5 +152,46 @@ export const getStockMaterialesDescarga = async (req, res) => {
 
     } catch (error) {
         return handleControllerError(res, error, "Error al obtener el stock por descarga");
+    }
+};
+
+/**
+ * Obtiene los totales globales de ingreso y egreso para mostrar en KPIs del Dashboard.
+ * Calcula el neto real para todas las pesadas que ya han sido cerradas.
+ */
+export const getTotalesKpi = async (req, res) => {
+    try {
+        const [result] = await sequelize.query(
+            `
+      SELECT
+          COALESCE(SUM(CASE WHEN p.tipo_movimiento = 'INGRESO' THEN 
+              GREATEST(p.peso_bruto_kg - 
+                  CASE 
+                      WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg 
+                      ELSE v.tara_kg + COALESCE(c.tara_kg, 0) 
+                  END, 0)
+          ELSE 0 END), 0) AS total_ingreso,
+          
+          COALESCE(SUM(CASE WHEN p.tipo_movimiento = 'EGRESO' THEN 
+              GREATEST(p.peso_bruto_kg - 
+                  CASE 
+                      WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg 
+                      ELSE v.tara_kg + COALESCE(c.tara_kg, 0) 
+                  END, 0)
+          ELSE 0 END), 0) AS total_egreso
+      FROM pesadas p
+      JOIN vehiculos v ON v.id = p.vehiculo_id
+      LEFT JOIN cajas c ON c.id = p.caja_id
+      WHERE p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+      `,
+            {
+                type: sequelize.QueryTypes.SELECT,
+            }
+        );
+
+        res.json(result);
+
+    } catch (error) {
+        return handleControllerError(res, error, "Error al obtener totales para KPI");
     }
 };
