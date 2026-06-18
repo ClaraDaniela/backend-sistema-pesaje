@@ -97,7 +97,8 @@ export const createPesada = async (req, res) => {
       try {
         const bData = await obtenerPesoBalanza();
         if (bData?.disponible && bData?.peso_kg != null) {
-          pesoBruto = Number(bData.peso_kg);
+          const pesoRaw = Number(bData.peso_kg);
+          pesoBruto = pesoRaw < 0.2 ? 0 : pesoRaw;  // menos de 200g → 0
           origen = "BALANZA";
         }
       } catch { }
@@ -188,7 +189,36 @@ export const createPesada = async (req, res) => {
       nro_remito: nro_remito || null,
       peso_declarado_kg: peso_declarado_kg || null
     });
+    // Solo evaluar tolerancia si se cerró automáticamente
+    if (estadoFinal !== "ABIERTA") {
+      const [row] = await sequelize.query(
+        `SELECT * FROM vw_pesadas_con_neto WHERE id = :id`,
+        { replacements: { id: pesada.id }, type: sequelize.QueryTypes.SELECT }
+      );
 
+      const dentroTolerancia = row?.dentro_tolerancia;
+      const tipo =
+        dentroTolerancia === null || dentroTolerancia === 1
+          ? "ok"
+          : "fuera_tolerancia";
+
+      return res.status(201).json({
+        ...row,
+        tipo,
+        mensaje:
+          tipo === "ok"
+            ? "Pesada registrada correctamente"
+            : `Diferencia de ${Math.abs(row.diferencia_kg).toFixed(0)} kg respecto al peso declarado`,
+        id: row.id,
+      });
+    }
+
+    // Si quedó ABIERTA → siempre ok, sin evaluar tolerancia
+    return res.status(201).json({
+      ...pesada.toJSON(),
+      tipo: "ok",
+      mensaje: "Pesada registrada. Pendiente de cierre.",
+    });
     return res.status(201).json(pesada);
 
   } catch (err) {
@@ -367,6 +397,7 @@ FROM vw_pesadas_con_neto p
 LEFT JOIN descarga_detalles d 
   ON d.pesada_id = p.id
 WHERE d.pesada_id IS NULL
+  AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
   AND (
     p.peso_neto_real_kg > 0
     OR p.peso_neto_estimado_kg > 0
@@ -447,9 +478,30 @@ export const cerrarPesada = async (req, res) => {
       fecha_cierre: new Date()
     });
 
-    const pesadaActualizada = await Pesada.findByPk(id);
+    const [row] = await sequelize.query(
+      `SELECT * FROM vw_pesadas_con_neto WHERE id = :id`,
+      { replacements: { id }, type: sequelize.QueryTypes.SELECT }
+    );
 
-    return res.json(pesadaActualizada);
+    const dentroTolerancia = row?.dentro_tolerancia;
+
+    // NULL = sin peso declarado → ok
+    // 1    = dentro de tolerancia → ok
+    // 0    = fuera de tolerancia → advertencia
+    const tipo =
+      dentroTolerancia === null || dentroTolerancia === 1
+        ? "ok"
+        : "fuera_tolerancia";
+
+    return res.json({
+      ...row,
+      tipo,
+      mensaje:
+        tipo === "ok"
+          ? "Pesada cerrada correctamente"
+          : `Diferencia de ${Math.abs(row.diferencia_kg).toFixed(0)} kg respecto al peso declarado`,
+      id: row.id,
+    });
 
   } catch (err) {
     console.error("ERROR CERRAR PESADA:", err);
