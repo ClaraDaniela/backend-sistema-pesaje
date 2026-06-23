@@ -50,6 +50,8 @@ export const getStockMaterialesGenerales = async (req, res) => {
             mg.id,
             mg.nombre
 
+        HAVING stock_total <> 0
+
         ORDER BY
             mg.nombre ASC
       `,
@@ -137,6 +139,8 @@ export const getStockMaterialesDescarga = async (req, res) => {
           mb.nombre,
           fm.nombre,
           em.nombre
+
+    HAVING stock_total <> 0
 
       ORDER BY
           tm.nombre ASC,

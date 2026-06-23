@@ -33,63 +33,49 @@ export const createPesada = async (req, res) => {
       tara_real_kg
     } = req.body;
 
+    // --- Validaciones básicas ---
     if (!tipo_movimiento || !empresa_id || !personal_id || !material_general_id || !vehiculo_id) {
-      return res.status(400).json({
-        error: "Faltan campos obligatorios"
-      });
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
+    // --- Vehículo ---
     const vehiculo = await Vehiculo.findByPk(vehiculo_id, {
-      include: [{
-        model: TipoVehiculo,
-        as: "tipo_vehiculo"
-      }]
+      include: [{ model: TipoVehiculo, as: "tipo_vehiculo" }]
     });
 
     if (!vehiculo) {
-      return res.status(404).json({
-        error: "Vehículo no encontrado"
-      });
+      return res.status(404).json({ error: "Vehículo no encontrado" });
     }
 
+    // --- Caja (solo ROLL OFF) ---
     let cajaFinal = null;
     let taraCaja = 0;
 
-    const tipoVehiculo = vehiculo.tipo_vehiculo?.nombre;
-
-    if (tipoVehiculo === "ROLL OFF") {
+    if (vehiculo.tipo_vehiculo?.nombre === "ROLL OFF") {
       if (!caja_id) {
-        return res.status(400).json({
-          error: "Debe seleccionar una caja"
-        });
+        return res.status(400).json({ error: "Debe seleccionar una caja" });
       }
 
       const caja = await Caja.findByPk(caja_id);
-
       if (!caja) {
-        return res.status(404).json({
-          error: "Caja no encontrada"
-        });
+        return res.status(404).json({ error: "Caja no encontrada" });
       }
 
       cajaFinal = caja_id;
       taraCaja = Number(caja.tara_kg || 0);
     }
 
+    // --- Validación modo MANUAL ---
     if (modo === "MANUAL") {
       if (password_manual !== process.env.MANUAL_AUTH_PASSWORD) {
-        return res.status(403).json({
-          error: "No autorizado"
-        });
+        return res.status(403).json({ error: "No autorizado" });
       }
-
       if (!motivo_manual?.trim()) {
-        return res.status(400).json({
-          error: "Debe indicar el motivo"
-        });
+        return res.status(400).json({ error: "Debe indicar el motivo" });
       }
     }
 
+    // --- Obtener peso bruto ---
     let pesoBruto = null;
     let origen = "MANUAL";
 
@@ -97,8 +83,7 @@ export const createPesada = async (req, res) => {
       try {
         const bData = await obtenerPesoBalanza();
         if (bData?.disponible && bData?.peso_kg != null) {
-          const pesoRaw = Number(bData.peso_kg);
-          pesoBruto = pesoRaw < 0.2 ? 0 : pesoRaw;  // menos de 200g → 0
+          pesoBruto = Number(bData.peso_kg);
           origen = "BALANZA";
         }
       } catch { }
@@ -106,38 +91,42 @@ export const createPesada = async (req, res) => {
 
     if (pesoBruto == null) {
       const manual = Number(peso_manual);
-
       if (!Number.isFinite(manual) || manual < 0) {
         return res.status(400).json({
-          error: "No se pudo obtener peso de balanza y no se proporcionó peso manual"
+          error: "No se pudo obtener peso de balanza y no se proporcionó peso manual válido"
         });
       }
-
       pesoBruto = manual;
       origen = "MANUAL";
     }
 
+    // --- Normalizar peso menor a 200g → 0 (aplica siempre, sea balanza o manual) ---
+    if (pesoBruto < 0.2) pesoBruto = 0;
+
+    // --- Material ---
+    const material = await MaterialGeneral.findByPk(material_general_id);
+
+    // --- Tara total del vehículo ---
     const taraVehiculo = Number(vehiculo.tara_kg || 0);
     const taraTotal = taraVehiculo + taraCaja;
 
-    const toleranciaVacio = 150;
+    // --- Lógica de cierre ---
+    const TOLERANCIA_VACIO_KG = 0.15; // 150 kg
 
     const taraManual =
-      tara_real_kg != null &&
-        tara_real_kg !== ""
+      tara_real_kg != null && tara_real_kg !== ""
         ? Number(tara_real_kg)
         : null;
-    const material = await MaterialGeneral.findByPk(material_general_id);
-    const esSinCarga = pesoBruto === 0 && material?.nombre === "VACIO";
 
-    const cerrarManual =
-      taraManual != null &&
-      Number.isFinite(taraManual);
+    const cerrarManual = taraManual != null && Number.isFinite(taraManual);
+
+    const esSinCarga =
+      pesoBruto === 0 &&
+      material?.nombre?.trim().toUpperCase() === "VACIO";
 
     const estaVacioAutomatico =
       !cerrarManual &&
-      Math.abs(pesoBruto - taraTotal) <= toleranciaVacio;
-
+      Math.abs(pesoBruto - taraTotal) <= TOLERANCIA_VACIO_KG;
 
     const estadoFinal =
       cerrarManual || estaVacioAutomatico || esSinCarga
@@ -151,6 +140,7 @@ export const createPesada = async (req, res) => {
           ? pesoBruto
           : null;
 
+    // --- Crear pesada ---
     const pesada = await Pesada.create({
       tipo_movimiento,
       empresa_id,
@@ -158,47 +148,31 @@ export const createPesada = async (req, res) => {
       material_general_id,
       vehiculo_id,
       caja_id: cajaFinal,
-
       peso_bruto_kg: pesoBruto,
       origen,
-
       usuario_id: usuario_id || null,
-
-      motivo_manual:
-        origen === "MANUAL"
-          ? motivo_manual
-          : null,
-
+      motivo_manual: origen === "MANUAL" ? motivo_manual : null,
       tara_real_kg: taraFinal,
-
       estado: estadoFinal,
-
-      fecha_cierre:
-        estadoFinal !== "ABIERTA"
-          ? new Date()
-          : null,
-
+      fecha_cierre: estadoFinal !== "ABIERTA" ? new Date() : null,
       modo_salida:
-        cerrarManual
-          ? "MANUAL"
-          : estaVacioAutomatico || esSinCarga
-            ? "AUTOMATICO"
-            : null,
-
+        cerrarManual ? "MANUAL"
+        : estaVacioAutomatico || esSinCarga ? "AUTOMATICO"
+        : null,
       nro_manifiesto: nro_manifiesto || null,
       nro_remito: nro_remito || null,
       peso_declarado_kg: peso_declarado_kg || null
     });
-    // Solo evaluar tolerancia si se cerró automáticamente
+
+    // --- Respuesta ---
     if (estadoFinal !== "ABIERTA") {
       const [row] = await sequelize.query(
         `SELECT * FROM vw_pesadas_con_neto WHERE id = :id`,
         { replacements: { id: pesada.id }, type: sequelize.QueryTypes.SELECT }
       );
 
-      const dentroTolerancia = row?.dentro_tolerancia;
       const tipo =
-        dentroTolerancia === null || dentroTolerancia === 1
+        row?.dentro_tolerancia === null || row?.dentro_tolerancia === 1
           ? "ok"
           : "fuera_tolerancia";
 
@@ -213,20 +187,15 @@ export const createPesada = async (req, res) => {
       });
     }
 
-    // Si quedó ABIERTA → siempre ok, sin evaluar tolerancia
     return res.status(201).json({
       ...pesada.toJSON(),
       tipo: "ok",
       mensaje: "Pesada registrada. Pendiente de cierre.",
     });
-    return res.status(201).json(pesada);
 
   } catch (err) {
     console.error("ERROR CREATE PESADA:", err);
-
-    return res.status(500).json({
-      error: "Error al crear pesada"
-    });
+    return res.status(500).json({ error: "Error al crear pesada" });
   }
 };
 
@@ -392,18 +361,18 @@ export const getPesadasSinDescarga = async (req, res) => {
   try {
     const rows = await sequelize.query(
       `
-SELECT p.*
-FROM vw_pesadas_con_neto p
-LEFT JOIN descarga_detalles d 
-  ON d.pesada_id = p.id
-WHERE d.pesada_id IS NULL
-  AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
-  AND (
-    p.peso_neto_real_kg > 0
-    OR p.peso_neto_estimado_kg > 0
-  )
-ORDER BY p.fecha DESC
-LIMIT 200
+      SELECT p.*
+      FROM vw_pesadas_con_neto p
+      LEFT JOIN descarga_detalles d ON d.pesada_id = p.id
+      WHERE d.pesada_id IS NULL
+        AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+        AND (
+          p.peso_neto_real_kg > 0
+          OR p.peso_neto_estimado_kg > 0
+        )
+        AND UPPER(TRIM(p.material)) != 'VACIO'
+      ORDER BY p.fecha DESC
+      LIMIT 200
       `,
       { type: sequelize.QueryTypes.SELECT }
     );
