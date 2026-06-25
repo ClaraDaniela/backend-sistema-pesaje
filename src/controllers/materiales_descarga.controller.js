@@ -18,7 +18,6 @@ export const getMaterialesDescarga = async (req, res) => {
     const data = await materiales.findAll({
       include: [
         { model: tipos_material, as: "tipo_material", attributes: ["id", "nombre"] },
-        { model: estados_material, as: "estado_material", attributes: ["id", "nombre"] },
         { model: materiales_base, as: "material_base", attributes: ["id", "nombre"] },
         { model: formas_material, as: "forma_material", attributes: ["id", "nombre"] }
       ],
@@ -62,7 +61,6 @@ export const getMaterialDescargaById = async (req, res) => {
     const data = await materiales.findByPk(id, {
       include: [
         { model: tipos_material, as: "tipo_material" },
-        { model: estados_material, as: "estado_material" },
         { model: materiales_base, as: "material_base" },
         { model: formas_material, as: "forma_material" }
       ]
@@ -133,7 +131,6 @@ export const getCombinacionesMaterial = async (req, res) => {
     const data = await materiales.findAll({
       include: [
         { model: tipos_material, as: "tipo_material", attributes: ["id", "nombre"] },
-        { model: estados_material, as: "estado_material", attributes: ["id", "nombre"] },
         { model: materiales_base, as: "material_base", attributes: ["id", "nombre"] },
         { model: formas_material, as: "forma_material", attributes: ["id", "nombre"] },
       ],
@@ -149,8 +146,6 @@ export const getCombinacionesMaterial = async (req, res) => {
       id_materiales_descarga: m.id_materiales_descarga,
       tipo_material_id: m.tipo_material?.id ?? null,
       tipo_nombre: m.tipo_material?.nombre ?? null,
-      estado_material_id: m.estado_material?.id ?? null,
-      estado_nombre: m.estado_material?.nombre ?? null,
       material_base_id: m.material_base?.id ?? null,
       base_nombre: m.material_base?.nombre ?? null,
       forma_material_id: m.forma_material?.id ?? null,

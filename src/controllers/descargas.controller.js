@@ -10,7 +10,7 @@ const {
 } = models;
 
 export const createDescarga = async (req, res) => {
-  const { pesada_id, responsable, comentarios, materiales } = req.body;
+  const { pesada_id, responsable, comentarios, materiales, usuario_id } = req.body;
 
   const t = await sequelize.transaction();
 
@@ -48,7 +48,8 @@ export const createDescarga = async (req, res) => {
     const descarga = await DescargaDetalle.create({
       pesada_id,
       responsable,
-      comentarios
+      comentarios,
+      usuario_id: usuario_id || null
     }, { transaction: t });
 
     for (const mat of materiales) {
@@ -95,39 +96,41 @@ export const getReciclabilidad = async (req, res) => {
   try {
     const rows = await sequelize.query(
       `
-      SELECT
-          dd.id_descarga_detalles,
-          dd.marca_temporal_info AS fecha_descarga,
-          dd.comentarios,
-          p.id AS pesada_id,
-          p.nro_manifiesto,
-          p.nro_remito,
-          e.nombre AS empresa,
-          per.nombre AS personal_nombre,
-          per.apellido AS personal_apellido,
-          veh.patente,
-          mg.nombre AS material_general_pesada,
-          (p.peso_bruto_kg - COALESCE(p.tara_real_kg, veh.tara_kg + COALESCE(c.tara_kg, 0))) AS peso_neto_pesada,
-          ddm.porcentaje,
-          md.id_materiales_descarga AS material_descarga_id,
-          tm.nombre AS tipo_material_descarga,
-          mb.nombre AS material_base_descarga,
-          fm.nombre AS forma_material_descarga,
-          em.nombre AS estado_material_descarga
-      FROM descarga_detalles dd
-      JOIN pesadas p ON p.id = dd.pesada_id
-      JOIN empresas e ON e.id = p.empresa_id
-      JOIN personal per ON per.id_personal = p.personal_id
-      JOIN vehiculos veh ON veh.id = p.vehiculo_id
-      LEFT JOIN cajas c ON c.id = p.caja_id
-      JOIN materiales_generales mg ON mg.id = p.material_general_id
-      JOIN descarga_detalles_materiales ddm ON ddm.id_descarga_detalles = dd.id_descarga_detalles
-      JOIN materiales md ON md.id_materiales_descarga = ddm.id_materiales
-      LEFT JOIN tipos_material tm ON tm.id = md.tipo_material_id
-      LEFT JOIN materiales_base mb ON mb.id = md.material_base_id
-      LEFT JOIN formas_material fm ON fm.id = md.forma_material_id
-      LEFT JOIN estados_material em ON em.id = md.estado_material_id
-      ORDER BY dd.marca_temporal_info DESC
+        SELECT
+            dd.id_descarga_detalles,
+            dd.marca_temporal_info AS fecha_descarga,
+            dd.comentarios,
+            p.id AS pesada_id,
+            p.nro_manifiesto,
+            p.nro_remito,
+            e.nombre AS empresa,
+            per.nombre AS personal_nombre,
+            per.apellido AS personal_apellido,
+            veh.patente,
+            mg.nombre AS material_general_pesada,
+            (p.peso_bruto_kg - COALESCE(p.tara_real_kg, veh.tara_kg + COALESCE(c.tara_kg, 0))) AS peso_neto_pesada,
+            u.nombreusuario AS usuario_descarga,
+            ddm.porcentaje,
+            md.id_materiales_descarga AS material_descarga_id,
+            tm.nombre AS tipo_material_descarga,
+            mb.nombre AS material_base_descarga,
+            fm.nombre AS forma_material_descarga,
+            em.nombre AS estado_material_descarga
+        FROM descarga_detalles dd
+        JOIN pesadas p ON p.id = dd.pesada_id
+        JOIN empresas e ON e.id = p.empresa_id
+        JOIN personal per ON per.id_personal = p.personal_id
+        JOIN vehiculos veh ON veh.id = p.vehiculo_id
+        LEFT JOIN cajas c ON c.id = p.caja_id
+        JOIN materiales_generales mg ON mg.id = p.material_general_id
+        JOIN descarga_detalles_materiales ddm ON ddm.id_descarga_detalles = dd.id_descarga_detalles
+        JOIN materiales md ON md.id_materiales_descarga = ddm.id_materiales
+        LEFT JOIN tipos_material tm ON tm.id = md.tipo_material_id
+        LEFT JOIN materiales_base mb ON mb.id = md.material_base_id
+        LEFT JOIN formas_material fm ON fm.id = md.forma_material_id
+        LEFT JOIN estados_material em ON em.id = md.estado_material_id
+        LEFT JOIN usuarios u ON u.id = dd.usuario_id
+        ORDER BY dd.marca_temporal_info DESC
       `,
       { type: sequelize.QueryTypes.SELECT }
     );

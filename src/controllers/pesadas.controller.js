@@ -100,18 +100,8 @@ export const createPesada = async (req, res) => {
       origen = "MANUAL";
     }
 
-    // --- Normalizar peso menor a 200g → 0 (aplica siempre, sea balanza o manual) ---
-    if (pesoBruto < 0.2) pesoBruto = 0;
-
-    // --- Material ---
-    const material = await MaterialGeneral.findByPk(material_general_id);
-
-    // --- Tara total del vehículo ---
-    const taraVehiculo = Number(vehiculo.tara_kg || 0);
-    const taraTotal = taraVehiculo + taraCaja;
-
-    // --- Lógica de cierre ---
-    const TOLERANCIA_VACIO_KG = 0.15; // 150 kg
+    // --- Normalizar peso porque la balanza tiene pesos fantasma ajajja
+    if (pesoBruto < 500) pesoBruto = 0;
 
     const taraManual =
       tara_real_kg != null && tara_real_kg !== ""
@@ -120,49 +110,39 @@ export const createPesada = async (req, res) => {
 
     const cerrarManual = taraManual != null && Number.isFinite(taraManual);
 
-    const esSinCarga =
-      pesoBruto === 0 &&
-      material?.nombre?.trim().toUpperCase() === "VACIO";
-
-    const estaVacioAutomatico =
-      !cerrarManual &&
-      Math.abs(pesoBruto - taraTotal) <= TOLERANCIA_VACIO_KG;
+    const esSinCarga = pesoBruto === 0;
 
     const estadoFinal =
-      cerrarManual || estaVacioAutomatico || esSinCarga
-        ? "CERRADA_AUTOMATICA"
-        : "ABIERTA";
+      cerrarManual || esSinCarga ? "CERRADA_AUTOMATICA" : "ABIERTA";
 
     const taraFinal =
-      cerrarManual
-        ? taraManual
-        : estaVacioAutomatico || esSinCarga
-          ? pesoBruto
+      cerrarManual ? taraManual
+        : esSinCarga ? pesoBruto
           : null;
 
     // --- Crear pesada ---
     const pesada = await Pesada.create({
-      tipo_movimiento,
-      empresa_id,
-      personal_id,
-      material_general_id,
-      vehiculo_id,
-      caja_id: cajaFinal,
-      peso_bruto_kg: pesoBruto,
-      origen,
-      usuario_id: usuario_id || null,
-      motivo_manual: origen === "MANUAL" ? motivo_manual : null,
-      tara_real_kg: taraFinal,
-      estado: estadoFinal,
-      fecha_cierre: estadoFinal !== "ABIERTA" ? new Date() : null,
-      modo_salida:
-        cerrarManual ? "MANUAL"
-        : estaVacioAutomatico || esSinCarga ? "AUTOMATICO"
-        : null,
-      nro_manifiesto: nro_manifiesto || null,
-      nro_remito: nro_remito || null,
-      peso_declarado_kg: peso_declarado_kg || null
-    });
+          tipo_movimiento,
+          empresa_id,
+          personal_id,
+          material_general_id,
+          vehiculo_id,
+          caja_id: cajaFinal,
+          peso_bruto_kg: pesoBruto,
+          origen,
+          usuario_id: usuario_id || null,
+          motivo_manual: origen === "MANUAL" ? motivo_manual : null,
+          tara_real_kg: taraFinal,
+          estado: estadoFinal,
+          fecha_cierre: estadoFinal !== "ABIERTA" ? new Date() : null,
+          modo_salida:
+            cerrarManual ? "MANUAL"
+              : esSinCarga ? "AUTOMATICO"
+                : null,
+          nro_manifiesto: nro_manifiesto || null,
+          nro_remito: nro_remito || null,
+          peso_declarado_kg: peso_declarado_kg || null
+        });
 
     // --- Respuesta ---
     if (estadoFinal !== "ABIERTA") {
