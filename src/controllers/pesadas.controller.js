@@ -122,27 +122,27 @@ export const createPesada = async (req, res) => {
 
     // --- Crear pesada ---
     const pesada = await Pesada.create({
-          tipo_movimiento,
-          empresa_id,
-          personal_id,
-          material_general_id,
-          vehiculo_id,
-          caja_id: cajaFinal,
-          peso_bruto_kg: pesoBruto,
-          origen,
-          usuario_id: usuario_id || null,
-          motivo_manual: origen === "MANUAL" ? motivo_manual : null,
-          tara_real_kg: taraFinal,
-          estado: estadoFinal,
-          fecha_cierre: estadoFinal !== "ABIERTA" ? new Date() : null,
-          modo_salida:
-            cerrarManual ? "MANUAL"
-              : esSinCarga ? "AUTOMATICO"
-                : null,
-          nro_manifiesto: nro_manifiesto || null,
-          nro_remito: nro_remito || null,
-          peso_declarado_kg: peso_declarado_kg || null
-        });
+      tipo_movimiento,
+      empresa_id,
+      personal_id,
+      material_general_id,
+      vehiculo_id,
+      caja_id: cajaFinal,
+      peso_bruto_kg: pesoBruto,
+      origen,
+      usuario_id: usuario_id || null,
+      motivo_manual: origen === "MANUAL" ? motivo_manual : null,
+      tara_real_kg: taraFinal,
+      estado: estadoFinal,
+      fecha_cierre: estadoFinal !== "ABIERTA" ? new Date() : null,
+      modo_salida:
+        cerrarManual ? "MANUAL"
+          : esSinCarga ? "AUTOMATICO"
+            : null,
+      nro_manifiesto: nro_manifiesto || null,
+      nro_remito: nro_remito || null,
+      peso_declarado_kg: peso_declarado_kg || null
+    });
 
     // --- Respuesta ---
     if (estadoFinal !== "ABIERTA") {
@@ -222,6 +222,7 @@ export const getPesadas = async (req, res) => {
     const where = [];
     const replacements = {};
 
+
     if (empresa_id) {
       where.push("empresa_id = :empresa_id");
       replacements.empresa_id = Number(empresa_id);
@@ -248,12 +249,13 @@ export const getPesadas = async (req, res) => {
     }
 
     const query = `
-      SELECT *
-      FROM vw_pesadas_con_neto
-      ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ORDER BY fecha DESC
-      LIMIT 200
-    `;
+        SELECT *
+        FROM vw_pesadas_con_neto
+        WHERE id NOT IN (SELECT id FROM pesadas WHERE eliminado = 1)
+        ${where.length ? "AND " + where.join(" AND ") : ""}
+        ORDER BY fecha DESC
+        LIMIT 200
+      `;
 
     const rows = await sequelize.query(query, {
       replacements,
@@ -326,7 +328,7 @@ export const updatePesada = async (req, res) => {
       usuario_id: usuario_id || pesada.usuario_id,
       nro_manifiesto,
       nro_remito,
-      peso_declarado_kg
+      peso_declarado_kg,
     });
 
     return res.json({ ok: true });
@@ -351,6 +353,7 @@ export const getPesadasSinDescarga = async (req, res) => {
           OR p.peso_neto_estimado_kg > 0
         )
         AND UPPER(TRIM(p.material)) != 'VACIO'
+        AND p.id NOT IN (SELECT id FROM pesadas WHERE eliminado = 1)  
       ORDER BY p.fecha DESC
       LIMIT 200
       `,
@@ -458,5 +461,34 @@ export const cerrarPesada = async (req, res) => {
     return res.status(500).json({
       error: "Error al cerrar pesada"
     });
+  }
+};
+
+export const deletePesada = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuario_id } = req.body;
+
+    const pesada = await Pesada.findByPk(id);
+
+    if (!pesada) {
+      return res.status(404).json({ error: "Pesada no encontrada" });
+    }
+
+    if (pesada.eliminado) {
+      return res.status(400).json({ error: "La pesada ya fue eliminada" });
+    }
+
+    await pesada.update({
+      eliminado: true,
+      eliminado_en: new Date(),
+      eliminado_por: usuario_id || null,
+    });
+
+    return res.json({ ok: true, mensaje: "Pesada eliminada correctamente" });
+
+  } catch (err) {
+    console.error("ERROR DELETE PESADA:", err);
+    return res.status(500).json({ error: "Error al eliminar la pesada" });
   }
 };

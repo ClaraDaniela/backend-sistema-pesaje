@@ -56,6 +56,7 @@ export const getInventario = async (req, res) => {
           JOIN vehiculos v ON v.id = p.vehiculo_id
           LEFT JOIN cajas c ON c.id = p.caja_id
           WHERE p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+          AND p.eliminado = 0
           GROUP BY p.material_general_id
       ),
       inventario_agregado AS (

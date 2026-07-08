@@ -39,6 +39,7 @@ export const getStockMaterialesGenerales = async (req, res) => {
         LEFT JOIN pesadas p
             ON p.material_general_id = mg.id
             AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+            AND p.eliminado = 0
 
         LEFT JOIN vehiculos v
             ON v.id = p.vehiculo_id
@@ -80,29 +81,16 @@ export const getStockMaterialesDescarga = async (req, res) => {
           COALESCE(fm.nombre, '')      AS forma,
           em.nombre                    AS estado,
 
-          COALESCE(SUM(
-              CASE
-                  WHEN p.tipo_movimiento = 'INGRESO'
-                      THEN (
-                          p.peso_bruto_kg -
-                          CASE
-                              WHEN p.tara_real_kg IS NOT NULL
-                                  THEN p.tara_real_kg
-                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                          END
-                      ) * (ddm.porcentaje / 100)
-                  WHEN p.tipo_movimiento = 'EGRESO'
-                      THEN -(
-                          p.peso_bruto_kg -
-                          CASE
-                              WHEN p.tara_real_kg IS NOT NULL
-                                  THEN p.tara_real_kg
-                              ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
-                          END
-                      ) * (ddm.porcentaje / 100)
-                  ELSE 0
-              END
-          ), 0) AS stock_total
+                COALESCE(SUM(
+                    (
+                        p.peso_bruto_kg -
+                        CASE
+                            WHEN p.tara_real_kg IS NOT NULL
+                                THEN p.tara_real_kg
+                            ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                        END
+                    ) * (ddm.porcentaje / 100)
+                ), 0) AS stock_total
 
       FROM materiales m
 
@@ -126,6 +114,7 @@ export const getStockMaterialesDescarga = async (req, res) => {
 
       LEFT JOIN pesadas p
           ON p.id = dd.pesada_id
+          AND p.eliminado = 0
 
       LEFT JOIN vehiculos v
           ON v.id = p.vehiculo_id
@@ -187,6 +176,7 @@ export const getTotalesKpi = async (req, res) => {
       JOIN vehiculos v ON v.id = p.vehiculo_id
       LEFT JOIN cajas c ON c.id = p.caja_id
       WHERE p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+      AND p.eliminado = 0
       `,
             {
                 type: sequelize.QueryTypes.SELECT,

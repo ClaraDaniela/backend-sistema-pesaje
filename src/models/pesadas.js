@@ -113,6 +113,23 @@ module.exports = function (sequelize, DataTypes) {
         'MANUAL'
       ),
       allowNull: true
+    }, 
+    eliminado: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
+    eliminado_en: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    eliminado_por: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'usuarios',
+        key: 'id'
+      }
     }
   }, {
     sequelize,
@@ -171,7 +188,7 @@ module.exports = function (sequelize, DataTypes) {
         fields: [
           { name: "material_general_id" },
         ]
-      },
+      }
     ]
   });
 };

@@ -117,7 +117,7 @@ export const getReciclabilidad = async (req, res) => {
             fm.nombre AS forma_material_descarga,
             em.nombre AS estado_material_descarga
         FROM descarga_detalles dd
-        JOIN pesadas p ON p.id = dd.pesada_id
+        JOIN pesadas p ON p.id = dd.pesada_id AND p.eliminado = 0 
         JOIN empresas e ON e.id = p.empresa_id
         JOIN personal per ON per.id_personal = p.personal_id
         JOIN vehiculos veh ON veh.id = p.vehiculo_id
