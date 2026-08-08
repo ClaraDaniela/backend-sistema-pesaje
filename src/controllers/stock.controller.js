@@ -1,8 +1,52 @@
 import { sequelize } from "../config/db.js";
 import { handleControllerError } from "./utils/response.js";
 
+/**
+ * Arma la cláusula WHERE dinámica según los filtros recibidos por query params.
+ * clienteId en realidad filtra por empresa_id (no hay tabla "clientes" separada).
+ */
+const buildFiltrosStock = (query, { alias = "p", materialAlias = "mg", materialColumn = "id" }) => {
+    const condiciones = [];
+    const replacements = {};
+
+    const { fechaDesde, fechaHasta, clienteId, materialId } = query;
+
+    if (fechaDesde) {
+        condiciones.push(`${alias}.fecha >= :fechaDesde`);
+        replacements.fechaDesde = fechaDesde;
+    }
+
+    if (fechaHasta) {
+        // Sumamos el día completo para que "hasta" sea inclusivo
+        condiciones.push(`${alias}.fecha < DATE_ADD(:fechaHasta, INTERVAL 1 DAY)`);
+        replacements.fechaHasta = fechaHasta;
+    }
+
+    if (clienteId) {
+        condiciones.push(`${alias}.empresa_id = :clienteId`);
+        replacements.clienteId = clienteId;
+    }
+
+    if (materialId) {
+        condiciones.push(`${materialAlias}.${materialColumn} = :materialId`);
+        replacements.materialId = materialId;
+    }
+
+    const whereSql = condiciones.length
+        ? `AND ${condiciones.join(" AND ")}`
+        : "";
+
+    return { whereSql, replacements };
+};
+
 export const getStockMaterialesGenerales = async (req, res) => {
     try {
+
+        const { whereSql, replacements } = buildFiltrosStock(req.query, {
+            alias: "p",
+            materialAlias: "mg",
+            materialColumn: "id",
+        });
 
         const rows = await sequelize.query(
             `
@@ -40,6 +84,7 @@ export const getStockMaterialesGenerales = async (req, res) => {
             ON p.material_general_id = mg.id
             AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
             AND p.eliminado = 0
+            ${whereSql}
 
         LEFT JOIN vehiculos v
             ON v.id = p.vehiculo_id
@@ -58,6 +103,7 @@ export const getStockMaterialesGenerales = async (req, res) => {
       `,
             {
                 type: sequelize.QueryTypes.SELECT,
+                replacements,
             }
         );
 
@@ -71,6 +117,12 @@ export const getStockMaterialesGenerales = async (req, res) => {
 
 export const getStockMaterialesDescarga = async (req, res) => {
     try {
+        const { whereSql, replacements } = buildFiltrosStock(req.query, {
+            alias: "p",
+            materialAlias: "m",
+            materialColumn: "id_materiales_descarga",
+        });
+
         const rows = await sequelize.query(
             `
       SELECT
@@ -115,6 +167,7 @@ export const getStockMaterialesDescarga = async (req, res) => {
       LEFT JOIN pesadas p
           ON p.id = dd.pesada_id
           AND p.eliminado = 0
+          ${whereSql}
 
       LEFT JOIN vehiculos v
           ON v.id = p.vehiculo_id
@@ -138,6 +191,7 @@ export const getStockMaterialesDescarga = async (req, res) => {
       `,
             {
                 type: sequelize.QueryTypes.SELECT,
+                replacements,
             }
         );
 
@@ -148,12 +202,15 @@ export const getStockMaterialesDescarga = async (req, res) => {
     }
 };
 
-/**
- * Obtiene los totales globales de ingreso y egreso para mostrar en KPIs del Dashboard.
- * Calcula el neto real para todas las pesadas que ya han sido cerradas.
- */
 export const getTotalesKpi = async (req, res) => {
     try {
+
+        const { whereSql, replacements } = buildFiltrosStock(req.query, {
+            alias: "p",
+            materialAlias: "p",
+            materialColumn: "material_general_id",
+        });
+
         const [result] = await sequelize.query(
             `
       SELECT
@@ -177,9 +234,11 @@ export const getTotalesKpi = async (req, res) => {
       LEFT JOIN cajas c ON c.id = p.caja_id
       WHERE p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
       AND p.eliminado = 0
+      ${whereSql}
       `,
             {
                 type: sequelize.QueryTypes.SELECT,
+                replacements,
             }
         );
 

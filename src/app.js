@@ -8,6 +8,7 @@ import routes from "./routes/index.js";
 import notFoundHandler from "./middlewares/notFoundHandler.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import { logInfo } from "./utils/logger.js";
+import { iniciarJobDigestDiario } from "./jobs/dailyDigestJob.js";
 
 function validateStartupConfig() {
   const required = ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST"];
@@ -61,6 +62,15 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export function startServer(port = PORT) {
+  iniciarJobDigestDiario();
+
+  process.on("SIGINT", () => {
+    server.close(() => process.exit(0));
+  });
+
+  process.on("SIGTERM", () => {
+    server.close(() => process.exit(0));
+  });
   const server = app.listen(port, () => {
     logInfo(`API en http://localhost:${port} [${process.env.NODE_ENV || "production"}]`, {
       port,
@@ -79,9 +89,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     validateStartupConfig();
     const server = startServer();
 
-  process.on("SIGINT", () => {
-    server.close(() => process.exit(0));
-  });
+    process.on("SIGINT", () => {
+      server.close(() => process.exit(0));
+    });
 
     process.on("SIGTERM", () => {
       server.close(() => process.exit(0));
