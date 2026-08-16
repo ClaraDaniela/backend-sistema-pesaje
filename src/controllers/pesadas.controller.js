@@ -110,6 +110,13 @@ export const createPesada = async (req, res) => {
 
     const cerrarManual = taraManual != null && Number.isFinite(taraManual);
 
+    // --- No permitir tara mayor o igual al bruto ---
+    if (cerrarManual && pesoBruto - taraManual < 0) {
+      return res.status(400).json({
+        error: "Tara mal cargada: no puede ser mayor al peso bruto"
+      });
+    }
+
     const esSinCarga = pesoBruto === 0;
 
     const estadoFinal =
@@ -317,6 +324,13 @@ export const updatePesada = async (req, res) => {
       pesoBruto = manual;
     }
 
+    // --- No permitir que el nuevo bruto quede por debajo de la tara ya cargada ---
+    if (pesada.tara_real_kg != null && pesoBruto - Number(pesada.tara_real_kg) < 0) {
+      return res.status(400).json({
+        error: "Tara mal cargada: el peso bruto no puede ser menor a la tara ya registrada"
+      });
+    }
+
     await pesada.update({
       tipo_movimiento,
       empresa_id,
@@ -398,6 +412,13 @@ export const cerrarPesada = async (req, res) => {
     if (!Number.isFinite(pesoSalida) || pesoSalida < 0) {
       return res.status(400).json({
         error: "Peso inválido"
+      });
+    }
+
+    // --- No permitir tara mayor o igual al bruto ---
+    if (Number(pesada.peso_bruto_kg) - pesoSalida < 0) {
+      return res.status(400).json({
+        error: "Tara mal cargada: no puede ser mayor al peso bruto"
       });
     }
 
