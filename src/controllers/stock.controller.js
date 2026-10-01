@@ -248,3 +248,185 @@ export const getTotalesKpi = async (req, res) => {
         return handleControllerError(res, error, "Error al obtener totales para KPI");
     }
 };
+
+export const getClasificacionIngreso = async (req, res) => {
+    try {
+
+        const { whereSql, replacements } = buildFiltrosStock(req.query, {
+            alias: "p",
+            materialAlias: "p",
+            materialColumn: "material_general_id",
+        });
+
+        const netoExpr = `
+            GREATEST(p.peso_bruto_kg -
+                CASE
+                    WHEN p.tara_real_kg IS NOT NULL THEN p.tara_real_kg
+                    ELSE v.tara_kg + COALESCE(c.tara_kg, 0)
+                END, 0)
+        `;
+
+        // =========================================================
+        // TOTALES: ingreso / clasificado / diferencia
+        // =========================================================
+
+        const [totales] = await sequelize.query(
+            `
+            SELECT
+                COALESCE(ing.total_ingreso, 0) AS total_ingreso,
+                COALESCE(cla.total_clasificado, 0) AS total_clasificado,
+                COALESCE(ing.total_ingreso, 0) - COALESCE(cla.total_clasificado, 0) AS diferencia
+            FROM
+                (
+                    SELECT COALESCE(SUM(${netoExpr}), 0) AS total_ingreso
+                    FROM pesadas p
+                    JOIN vehiculos v ON v.id = p.vehiculo_id
+                    LEFT JOIN cajas c ON c.id = p.caja_id
+                    WHERE p.tipo_movimiento = 'INGRESO'
+                      AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+                      AND p.eliminado = 0
+                      ${whereSql}
+                ) ing,
+                (
+                    SELECT COALESCE(SUM(${netoExpr} * (ddm.porcentaje / 100)), 0) AS total_clasificado
+                    FROM pesadas p
+                    JOIN vehiculos v ON v.id = p.vehiculo_id
+                    LEFT JOIN cajas c ON c.id = p.caja_id
+                    JOIN descarga_detalles dd ON dd.pesada_id = p.id
+                    JOIN descarga_detalles_materiales ddm ON ddm.id_descarga_detalles = dd.id_descarga_detalles
+                    WHERE p.tipo_movimiento = 'INGRESO'
+                      AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+                      AND p.eliminado = 0
+                      ${whereSql}
+                ) cla
+            `,
+            {
+                type: sequelize.QueryTypes.SELECT,
+                replacements,
+            }
+        );
+
+        // =========================================================
+        // POR TIPO DE MATERIAL (% de lo ya clasificado)
+        // =========================================================
+
+        const porTipoMaterial = await sequelize.query(
+            `
+            SELECT
+                tm.nombre AS tipo_material,
+                SUM(${netoExpr} * (ddm.porcentaje / 100)) AS total_kg,
+                ROUND(
+                    SUM(${netoExpr} * (ddm.porcentaje / 100))
+                    / SUM(SUM(${netoExpr} * (ddm.porcentaje / 100))) OVER ()
+                    * 100, 1
+                ) AS porcentaje
+            FROM pesadas p
+            JOIN vehiculos v ON v.id = p.vehiculo_id
+            LEFT JOIN cajas c ON c.id = p.caja_id
+            JOIN descarga_detalles dd ON dd.pesada_id = p.id
+            JOIN descarga_detalles_materiales ddm ON ddm.id_descarga_detalles = dd.id_descarga_detalles
+            JOIN materiales m ON m.id_materiales_descarga = ddm.id_materiales
+            JOIN tipos_material tm ON tm.id = m.tipo_material_id
+            WHERE p.tipo_movimiento = 'INGRESO'
+              AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+              AND p.eliminado = 0
+              ${whereSql}
+            GROUP BY tm.id, tm.nombre
+            ORDER BY total_kg DESC
+            `,
+            {
+                type: sequelize.QueryTypes.SELECT,
+                replacements,
+            }
+        );
+
+        // =========================================================
+        // POR CATEGORIA GENERAL DE INGRESO (con lo ya clasificado)
+        // =========================================================
+
+        const porCategoriaIngreso = await sequelize.query(
+            `
+            SELECT
+                mg.nombre AS categoria,
+                COALESCE(ing.total_ingreso, 0) AS total_ingreso,
+                COALESCE(cla.total_clasificado, 0) AS total_clasificado
+            FROM materiales_generales mg
+            LEFT JOIN (
+                SELECT
+                    p.material_general_id,
+                    SUM(${netoExpr}) AS total_ingreso
+                FROM pesadas p
+                JOIN vehiculos v ON v.id = p.vehiculo_id
+                LEFT JOIN cajas c ON c.id = p.caja_id
+                WHERE p.tipo_movimiento = 'INGRESO'
+                  AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+                  AND p.eliminado = 0
+                  ${whereSql}
+                GROUP BY p.material_general_id
+            ) ing ON ing.material_general_id = mg.id
+            LEFT JOIN (
+                SELECT
+                    p.material_general_id,
+                    SUM(${netoExpr} * (ddm.porcentaje / 100)) AS total_clasificado
+                FROM pesadas p
+                JOIN vehiculos v ON v.id = p.vehiculo_id
+                LEFT JOIN cajas c ON c.id = p.caja_id
+                JOIN descarga_detalles dd ON dd.pesada_id = p.id
+                JOIN descarga_detalles_materiales ddm ON ddm.id_descarga_detalles = dd.id_descarga_detalles
+                WHERE p.tipo_movimiento = 'INGRESO'
+                  AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+                  AND p.eliminado = 0
+                  ${whereSql}
+                GROUP BY p.material_general_id
+            ) cla ON cla.material_general_id = mg.id
+            WHERE COALESCE(ing.total_ingreso, 0) <> 0
+               OR COALESCE(cla.total_clasificado, 0) <> 0
+            ORDER BY mg.nombre ASC
+            `,
+            {
+                type: sequelize.QueryTypes.SELECT,
+                replacements,
+            }
+        );
+
+        // =========================================================
+        // POR CATEGORIA GENERAL — EGRESO
+        // =========================================================
+
+        const porCategoriaEgreso = await sequelize.query(
+            `
+            SELECT
+                mg.nombre AS categoria,
+                COALESCE(SUM(${netoExpr}), 0) AS total_kg
+            FROM materiales_generales mg
+            LEFT JOIN pesadas p
+                ON p.material_general_id = mg.id
+                AND p.tipo_movimiento = 'EGRESO'
+                AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+                AND p.eliminado = 0
+                ${whereSql}
+            LEFT JOIN vehiculos v ON v.id = p.vehiculo_id
+            LEFT JOIN cajas c ON c.id = p.caja_id
+            GROUP BY mg.id, mg.nombre
+            HAVING total_kg <> 0
+            ORDER BY mg.nombre ASC
+            `,
+            {
+                type: sequelize.QueryTypes.SELECT,
+                replacements,
+            }
+        );
+
+        res.json({
+            total_ingreso: totales.total_ingreso,
+            total_clasificado: totales.total_clasificado,
+            diferencia: totales.diferencia,
+            por_tipo_material: porTipoMaterial,
+            por_categoria_ingreso: porCategoriaIngreso,
+            por_categoria_egreso: porCategoriaEgreso,
+        });
+
+    } catch (error) {
+        return handleControllerError(res, error, "Error al obtener la clasificación de ingreso");
+    }
+};

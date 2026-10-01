@@ -9,6 +9,7 @@ import notFoundHandler from "./middlewares/notFoundHandler.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import { logInfo } from "./utils/logger.js";
 import { iniciarJobDigestDiario } from "./jobs/dailyDigestJob.js";
+import { iniciarJobReporteDescargasSemanal } from "./jobs/reporteSemanalDescargaJob.js";
 
 function validateStartupConfig() {
   const required = ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST"];
@@ -63,6 +64,7 @@ app.use(errorHandler);
 
 export function startServer(port = PORT) {
   iniciarJobDigestDiario();
+  iniciarJobReporteDescargasSemanal();
 
   process.on("SIGINT", () => {
     server.close(() => process.exit(0));

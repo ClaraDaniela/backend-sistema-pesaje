@@ -82,11 +82,11 @@ module.exports = function (sequelize, DataTypes) {
       comment: "Tara medida en el momento (si se pesó vacío). NULL = se usa tara fija del vehículo"
     },
     nro_manifiesto: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(10),
       allowNull: true
     },
     nro_remito: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(14),
       allowNull: true
     },
     peso_declarado_kg: {

@@ -8,9 +8,15 @@ const { materiales_generales } = models;
 
 export const getMateriales = async (req, res) => {
   try {
+    const { tipo_movimiento } = req.query;
+
+    const where = {};
+    if (tipo_movimiento === "INGRESO") where.aplica_ingreso = 1;
+    else if (tipo_movimiento === "EGRESO") where.aplica_egreso = 1;
 
     const data = await materiales_generales.findAll({
-      attributes: ["id", "nombre"],
+      attributes: ["id", "nombre", "descripcion", "aplica_ingreso", "aplica_egreso"],
+      where,
       order: [["nombre", "ASC"]]
     });
 
@@ -22,20 +28,3 @@ export const getMateriales = async (req, res) => {
 };
 
 
-export const createMaterial = async (req, res) => {
-  try {
-    const { nombre } = req.body;
-
-    const nombreNormalizado = nombre.trim().toUpperCase();
-
-    const nuevo = await materiales_generales.create({ nombre: nombreNormalizado });
-
-    res.status(201).json({
-      id: nuevo.id,
-      nombre: nuevo.nombre
-    });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};

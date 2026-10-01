@@ -98,6 +98,7 @@ export const generarPdfPesada = async (req, res) => {
     fila("CLIENTE", p.empresa);
     fila("PATENTE", p.patente);
     fila("MATERIAL", p.material);
+    fila("MOVIMIENTO", p.tipo_movimiento);
 
     doc.moveDown();
     linea();
@@ -111,14 +112,14 @@ export const generarPdfPesada = async (req, res) => {
     const neto = ingreso - egreso;
 
     fila(
-      "INGRESO",
+      "PESO BRUTO",
       formatKg(ingreso) === "—"
         ? "—"
         : `${formatKg(ingreso)} kg`
     );
 
     fila(
-      "EGRESO",
+      "TARA REAL",
       formatKg(egreso) === "—"
         ? "—"
         : `${formatKg(egreso)} kg`

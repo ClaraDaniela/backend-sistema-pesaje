@@ -7,9 +7,9 @@ const models = initModels(sequelize);
 const {
   materiales,
   tipos_material,
-  estados_material,
   materiales_base,
-  formas_material
+  formas_material,
+  materiales_generales
 } = models;
 
 
@@ -116,8 +116,24 @@ export const deleteMaterialDescarga = async (req, res) => {
 
 export const getTiposMaterial = async (req, res) => {
   try {
+    const { material_general_id } = req.query;
+    const where = { activo: true };
+    const include = [];
+
+    if (material_general_id) {
+      include.push({
+        model: materiales_generales,
+        as: "generales",
+        attributes: [],
+        where: { id: material_general_id },
+        through: { attributes: [] }
+      });
+    }
+
     const data = await tipos_material.findAll({
       attributes: ["id", "nombre"],
+      where,
+      include,
       order: [["nombre", "ASC"]],
     });
     res.json(data);
@@ -129,8 +145,9 @@ export const getTiposMaterial = async (req, res) => {
 export const getCombinacionesMaterial = async (req, res) => {
   try {
     const data = await materiales.findAll({
+      where: { activo: true },
       include: [
-        { model: tipos_material, as: "tipo_material", attributes: ["id", "nombre"] },
+        { model: tipos_material, as: "tipo_material", attributes: ["id", "nombre"], where: { activo: true } },
         { model: materiales_base, as: "material_base", attributes: ["id", "nombre"] },
         { model: formas_material, as: "forma_material", attributes: ["id", "nombre"] },
       ],
@@ -140,8 +157,6 @@ export const getCombinacionesMaterial = async (req, res) => {
         [{ model: formas_material, as: "forma_material" }, "nombre", "ASC"],
       ],
     });
-
-    // Aplanar para que el frontend reciba un objeto plano por fila
     const result = data.map(m => ({
       id_materiales_descarga: m.id_materiales_descarga,
       tipo_material_id: m.tipo_material?.id ?? null,
@@ -151,7 +166,6 @@ export const getCombinacionesMaterial = async (req, res) => {
       forma_material_id: m.forma_material?.id ?? null,
       forma_nombre: m.forma_material?.nombre ?? null,
     }));
-
     res.json(result);
   } catch (error) {
     return handleControllerError(res, error, "Error al obtener las combinaciones de material");

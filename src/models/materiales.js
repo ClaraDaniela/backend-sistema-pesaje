@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-module.exports = function(sequelize, DataTypes) {
+module.exports = function (sequelize, DataTypes) {
   return sequelize.define('materiales', {
     id_materiales_descarga: {
       autoIncrement: true,
@@ -15,13 +15,10 @@ module.exports = function(sequelize, DataTypes) {
         key: 'id'
       }
     },
-    estado_material_id: {
-      type: DataTypes.INTEGER,
+    activo: {
+      type: DataTypes.BOOLEAN,
       allowNull: false,
-      references: {
-        model: 'estados_material',
-        key: 'id'
-      }
+      defaultValue: true
     },
     material_base_id: {
       type: DataTypes.INTEGER,

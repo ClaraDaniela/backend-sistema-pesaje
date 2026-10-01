@@ -11,6 +11,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(50),
       allowNull: false,
       unique: "nombre"
+    },
+    activo: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   }, {
     sequelize,
@@ -33,6 +38,13 @@ module.exports = function(sequelize, DataTypes) {
           { name: "nombre" },
         ]
       },
+      {
+        name: "activo",
+        using: "BTREE",
+        fields: [
+          { name: "activo" }
+        ]
+      }
     ]
   });
 };

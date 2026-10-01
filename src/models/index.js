@@ -4,7 +4,6 @@ var _cajas = require("./cajas");
 var _descarga_detalles = require("./descarga_detalles");
 var _descarga_detalles_materiales = require("./descarga_detalles_materiales");
 var _empresas = require("./empresas");
-var _estados_material = require("./estados_material");
 var _formas_material = require("./formas_material");
 var _inventario_fisico = require("./inventario_fisico");
 var _materiales = require("./materiales");
@@ -19,6 +18,7 @@ var _tipos_material = require("./tipos_material");
 var _tipos_vehiculo = require("./tipos_vehiculo");
 var _usuarios = require("./usuarios");
 var _vehiculos = require("./vehiculos");
+var _tipos_material_generales = require("./tipos_material_generales");
 
 function initModels(sequelize) {
   var ajustes_stock = _ajustes_stock(sequelize, DataTypes);
@@ -26,7 +26,6 @@ function initModels(sequelize) {
   var descarga_detalles = _descarga_detalles(sequelize, DataTypes);
   var descarga_detalles_materiales = _descarga_detalles_materiales(sequelize, DataTypes);
   var empresas = _empresas(sequelize, DataTypes);
-  var estados_material = _estados_material(sequelize, DataTypes);
   var formas_material = _formas_material(sequelize, DataTypes);
   var inventario_fisico = _inventario_fisico(sequelize, DataTypes);
   var materiales = _materiales(sequelize, DataTypes);
@@ -41,6 +40,7 @@ function initModels(sequelize) {
   var tipos_vehiculo = _tipos_vehiculo(sequelize, DataTypes);
   var usuarios = _usuarios(sequelize, DataTypes);
   var vehiculos = _vehiculos(sequelize, DataTypes);
+  var tipos_material_generales = _tipos_material_generales(sequelize, DataTypes);
 
   descarga_detalles.belongsToMany(materiales, { as: 'id_materiales_materiales', through: descarga_detalles_materiales, foreignKey: "id_descarga_detalles", otherKey: "id_materiales" });
   materiales.belongsToMany(descarga_detalles, { as: 'id_descarga_detalles_descarga_detalles', through: descarga_detalles_materiales, foreignKey: "id_materiales", otherKey: "id_descarga_detalles" });
@@ -50,8 +50,6 @@ function initModels(sequelize) {
   descarga_detalles.hasMany(descarga_detalles_materiales, { as: "descarga_detalles_materiales", foreignKey: "id_descarga_detalles"});
   pesadas.belongsTo(empresas, { as: "empresa", foreignKey: "empresa_id"});
   empresas.hasMany(pesadas, { as: "pesadas", foreignKey: "empresa_id"});
-  materiales.belongsTo(estados_material, { as: "estado_material", foreignKey: "estado_material_id"});
-  estados_material.hasMany(materiales, { as: "materiales", foreignKey: "estado_material_id"});
   materiales.belongsTo(formas_material, { as: "forma_material", foreignKey: "forma_material_id"});
   formas_material.hasMany(materiales, { as: "materiales", foreignKey: "forma_material_id"});
   descarga_detalles_materiales.belongsTo(materiales, { as: "id_materiales_materiale", foreignKey: "id_materiales"});
@@ -88,6 +86,19 @@ function initModels(sequelize) {
   usuarios.hasMany(pesadas, { as: "pesadas", foreignKey: "usuario_id"});
   pesadas.belongsTo(vehiculos, { as: "vehiculo", foreignKey: "vehiculo_id"});
   vehiculos.hasMany(pesadas, { as: "pesadas", foreignKey: "vehiculo_id"});
+  tipos_material.belongsToMany(materiales_generales, {
+  through: tipos_material_generales,
+  foreignKey: "tipo_material_id",
+  otherKey: "material_general_id",
+  as: "generales"
+});
+
+materiales_generales.belongsToMany(tipos_material, {
+  through: tipos_material_generales,
+  foreignKey: "material_general_id",
+  otherKey: "tipo_material_id",
+  as: "tipos_material"
+});
 
   return {
     ajustes_stock,
@@ -95,7 +106,6 @@ function initModels(sequelize) {
     descarga_detalles,
     descarga_detalles_materiales,
     empresas,
-    estados_material,
     formas_material,
     inventario_fisico,
     materiales,
@@ -110,6 +120,7 @@ function initModels(sequelize) {
     tipos_vehiculo,
     usuarios,
     vehiculos,
+    tipos_material_generales
   };
 }
 module.exports = initModels;

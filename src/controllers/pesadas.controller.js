@@ -13,6 +13,22 @@ const {
   materiales_generales: MaterialGeneral
 } = models;
 
+// La balanza tiene pesos fantasma: negativos o menores a este valor se toman como 0
+const UMBRAL_PESO_FANTASMA_KG = 100;
+
+// Peso declarado:
+//   undefined      -> no vino en el request
+//   null / ""      -> sin peso declarado (null)
+//   número >= 0    -> el número
+//   otra cosa      -> NaN (inválido: negativo, texto, etc.)
+const parsePesoDeclarado = (valor) => {
+  if (valor === undefined) return undefined;
+  if (valor === null || valor === "") return null;
+  const n = Number(valor);
+  if (!Number.isFinite(n) || n < 0) return NaN;
+  return n;
+};
+
 export const createPesada = async (req, res) => {
   try {
     const {
@@ -36,6 +52,12 @@ export const createPesada = async (req, res) => {
     // --- Validaciones básicas ---
     if (!tipo_movimiento || !empresa_id || !personal_id || !material_general_id || !vehiculo_id) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+
+    // --- Peso declarado (no puede ser negativo) ---
+    const pesoDeclarado = parsePesoDeclarado(peso_declarado_kg);
+    if (Number.isNaN(pesoDeclarado)) {
+      return res.status(400).json({ error: "Peso declarado inválido" });
     }
 
     // --- Vehículo ---
@@ -83,8 +105,11 @@ export const createPesada = async (req, res) => {
       try {
         const bData = await obtenerPesoBalanza();
         if (bData?.disponible && bData?.peso_kg != null) {
-          pesoBruto = Number(bData.peso_kg);
-          origen = "BALANZA";
+          const deBalanza = Number(bData.peso_kg);
+          if (Number.isFinite(deBalanza)) {
+            pesoBruto = deBalanza;
+            origen = "BALANZA";
+          }
         }
       } catch { }
     }
@@ -100,17 +125,22 @@ export const createPesada = async (req, res) => {
       origen = "MANUAL";
     }
 
-    // --- Normalizar peso porque la balanza tiene pesos fantasma ajajja
-    if (pesoBruto < 500) pesoBruto = 0;
+    // --- Normalizar peso: negativos y pesos fantasma de la balanza pasan a 0 ---
+    if (pesoBruto < UMBRAL_PESO_FANTASMA_KG) pesoBruto = 0;
 
-    const taraManual =
-      tara_real_kg != null && tara_real_kg !== ""
-        ? Number(tara_real_kg)
-        : null;
+    // --- Tara manual (no puede ser negativa) ---
+    let taraManual = null;
 
-    const cerrarManual = taraManual != null && Number.isFinite(taraManual);
+    if (tara_real_kg != null && tara_real_kg !== "") {
+      taraManual = Number(tara_real_kg);
+      if (!Number.isFinite(taraManual) || taraManual < 0) {
+        return res.status(400).json({ error: "Tara inválida" });
+      }
+    }
 
-    // --- No permitir tara mayor o igual al bruto ---
+    const cerrarManual = taraManual != null;
+
+    // --- No permitir tara mayor al bruto ---
     if (cerrarManual && pesoBruto - taraManual < 0) {
       return res.status(400).json({
         error: "Tara mal cargada: no puede ser mayor al peso bruto"
@@ -148,7 +178,7 @@ export const createPesada = async (req, res) => {
             : null,
       nro_manifiesto: nro_manifiesto || null,
       nro_remito: nro_remito || null,
-      peso_declarado_kg: peso_declarado_kg || null
+      peso_declarado_kg: pesoDeclarado || null
     });
 
     // --- Respuesta ---
@@ -306,6 +336,12 @@ export const updatePesada = async (req, res) => {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
+    // --- Peso declarado (no puede ser negativo) ---
+    const pesoDeclarado = parsePesoDeclarado(peso_declarado_kg);
+    if (Number.isNaN(pesoDeclarado)) {
+      return res.status(400).json({ error: "Peso declarado inválido" });
+    }
+
     let pesoBruto = pesada.peso_bruto_kg;
 
     if (peso_manual != null) {
@@ -342,7 +378,10 @@ export const updatePesada = async (req, res) => {
       usuario_id: usuario_id || pesada.usuario_id,
       nro_manifiesto,
       nro_remito,
-      peso_declarado_kg,
+      peso_declarado_kg:
+        pesoDeclarado === undefined
+          ? pesada.peso_declarado_kg
+          : (pesoDeclarado || null),
     });
 
     return res.json({ ok: true });
@@ -362,6 +401,7 @@ export const getPesadasSinDescarga = async (req, res) => {
       LEFT JOIN descarga_detalles d ON d.pesada_id = p.id
       WHERE d.pesada_id IS NULL
         AND p.estado IN ('CERRADA', 'CERRADA_AUTOMATICA')
+        AND p.tipo_movimiento = 'INGRESO'
         AND (
           p.peso_neto_real_kg > 0
           OR p.peso_neto_estimado_kg > 0
@@ -407,19 +447,36 @@ export const cerrarPesada = async (req, res) => {
       });
     }
 
-    const pesoSalida = Number(tara_real_kg);
+    let pesoSalida = Number(tara_real_kg);
 
-    if (!Number.isFinite(pesoSalida) || pesoSalida < 0) {
+    if (!Number.isFinite(pesoSalida)) {
       return res.status(400).json({
         error: "Peso inválido"
       });
     }
 
-    // --- No permitir tara mayor o igual al bruto ---
-    if (Number(pesada.peso_bruto_kg) - pesoSalida < 0) {
-      return res.status(400).json({
-        error: "Tara mal cargada: no puede ser mayor al peso bruto"
-      });
+    if (modo_salida === "MANUAL") {
+      // Carga manual: un negativo es un error de tipeo, se rechaza
+      if (pesoSalida < 0) {
+        return res.status(400).json({
+          error: "Peso inválido"
+        });
+      }
+    } else if (pesoSalida < UMBRAL_PESO_FANTASMA_KG) {
+      // Balanza: negativos y pesos fantasma se toman como 0
+      pesoSalida = 0;
+    }
+
+    const pesoBrutoOriginal = Number(pesada.peso_bruto_kg);
+
+    // --- El mayor de los dos pesos es el bruto, el menor es la tara ---
+    // (cubre EGRESO: a veces se pesa primero el vacío y después el cargado)
+    let pesoBrutoFinal = pesoBrutoOriginal;
+    let taraFinal = pesoSalida;
+
+    if (pesoSalida > pesoBrutoOriginal) {
+      pesoBrutoFinal = pesoSalida;
+      taraFinal = pesoBrutoOriginal;
     }
 
     if (modo_salida === "MANUAL") {
@@ -437,7 +494,8 @@ export const cerrarPesada = async (req, res) => {
     }
 
     await pesada.update({
-      tara_real_kg: pesoSalida,
+      peso_bruto_kg: pesoBrutoFinal,
+      tara_real_kg: taraFinal,
 
       modo_salida,
 
@@ -458,9 +516,6 @@ export const cerrarPesada = async (req, res) => {
 
     const dentroTolerancia = row?.dentro_tolerancia;
 
-    // NULL = sin peso declarado → ok
-    // 1    = dentro de tolerancia → ok
-    // 0    = fuera de tolerancia → advertencia
     const tipo =
       dentroTolerancia === null || dentroTolerancia === 1
         ? "ok"

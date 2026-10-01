@@ -114,8 +114,7 @@ export const getReciclabilidad = async (req, res) => {
             md.id_materiales_descarga AS material_descarga_id,
             tm.nombre AS tipo_material_descarga,
             mb.nombre AS material_base_descarga,
-            fm.nombre AS forma_material_descarga,
-            em.nombre AS estado_material_descarga
+            fm.nombre AS forma_material_descarga
         FROM descarga_detalles dd
         JOIN pesadas p ON p.id = dd.pesada_id AND p.eliminado = 0 
         JOIN empresas e ON e.id = p.empresa_id
@@ -128,7 +127,6 @@ export const getReciclabilidad = async (req, res) => {
         LEFT JOIN tipos_material tm ON tm.id = md.tipo_material_id
         LEFT JOIN materiales_base mb ON mb.id = md.material_base_id
         LEFT JOIN formas_material fm ON fm.id = md.forma_material_id
-        LEFT JOIN estados_material em ON em.id = md.estado_material_id
         LEFT JOIN usuarios u ON u.id = dd.usuario_id
         ORDER BY dd.marca_temporal_info DESC
       `,
@@ -142,8 +140,7 @@ export const getReciclabilidad = async (req, res) => {
         material_descarga_id,
         tipo_material_descarga,
         material_base_descarga,
-        forma_material_descarga,
-        estado_material_descarga
+        forma_material_descarga
       } = row;
 
       if (!acc[id_descarga_detalles]) {
@@ -155,7 +152,6 @@ export const getReciclabilidad = async (req, res) => {
         tipo_material_descarga,
         material_base_descarga,
         forma_material_descarga,
-        estado_material_descarga,
         porcentaje
       });
 

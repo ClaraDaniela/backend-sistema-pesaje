@@ -26,7 +26,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     tara_kg: {
       type: DataTypes.DECIMAL(10,2),
-      allowNull: false
+      allowNull: true
     },
     activo: {
       type: DataTypes.BOOLEAN,
