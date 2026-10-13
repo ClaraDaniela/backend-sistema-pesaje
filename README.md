@@ -12,6 +12,7 @@ Backend de la aplicación de pesaje con Express, Sequelize y MySQL.
    npm install
 2. Asegúrate de tener tu archivo .env configurado en la raíz del proyecto.
 3. Ajusta los valores de la base de datos y del puerto en .env.
+para locacion npm install open-location-code
 
 ## Ejecución
 - Desarrollo:

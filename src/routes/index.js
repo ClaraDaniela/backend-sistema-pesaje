@@ -16,6 +16,7 @@ import descargasRoutes from "./descargas.routes.js";
 import materialesDescargas from "./materiales_descarga.routes.js";
 import stockRoutes from "./stock.routes.js";
 import rolesRouter from "./roles.router.js";
+import ubicacionesRoutes from "./ubicaciones.routes.js"; 
 
 const router = Router();
 
@@ -37,7 +38,7 @@ apiV1.use("/descargas", descargasRoutes);
 apiV1.use("/materiales_descarga", materialesDescargas);
 apiV1.use("/stock", stockRoutes);
 apiV1.use("/roles", rolesRouter);
-
+apiV1.use("/location-logs", ubicacionesRoutes);   
 router.use("/v1", apiV1);
 router.use("/", apiV1);
 

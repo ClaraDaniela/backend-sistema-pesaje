@@ -19,7 +19,6 @@ export async function ejecutarDigestDiario() {
         "gestionservieco@gmail.com",
         "claracant123@gmail.com",
         "logistica@servieco.com.ar",
-        "administracion@servieco.com.ar",
         "transporte@servieco.com.ar"
       ],
       subject: `Reporte diario de pesadas - ${digest.fecha} (${digest.cantidadPesadas} pesadas)`,
@@ -33,11 +32,11 @@ export async function ejecutarDigestDiario() {
 }
 
 export function iniciarJobDigestDiario() {
-  // Todos los días a las 19:00, hora configurada. Ajustá el cron si necesitás otro horario.
-  // Formato: minuto hora díaMes mes díaSemana
-  cron.schedule("0 19 * * *", ejecutarDigestDiario, {
+  // Lunes a sábado a las 19:00 (los domingos no se envía).
+  // Formato: minuto hora díaMes mes díaSemana (0 = domingo, 1-6 = lunes a sábado)
+  cron.schedule("0 19 * * 1-6", ejecutarDigestDiario, {
     timezone: "America/Argentina/Buenos_Aires",
   });
 
-  console.log("[dailyDigestJob] Job de digest diario programado (19:00 America/Argentina/Buenos_Aires)");
+  console.log("[dailyDigestJob] Job de digest programado (lunes a sábado, 19:00 America/Argentina/Buenos_Aires)");
 }

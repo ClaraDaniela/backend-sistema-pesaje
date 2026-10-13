@@ -55,7 +55,6 @@ export async function ejecutarReporteDescargasSemanal() {
         "gestionservieco@gmail.com",
         "claracant123@gmail.com",
         "logistica@servieco.com.ar",
-        "administracion@servieco.com.ar",
         "transporte@servieco.com.ar"
       ],
 

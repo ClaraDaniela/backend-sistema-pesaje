@@ -10,9 +10,13 @@ import errorHandler from "./middlewares/errorHandler.js";
 import { logInfo } from "./utils/logger.js";
 import { iniciarJobDigestDiario } from "./jobs/dailyDigestJob.js";
 import { iniciarJobReporteDescargasSemanal } from "./jobs/reporteSemanalDescargaJob.js";
+import { trackingDb } from './config/tracking.js';
+import { iniciarReporteUbicaciones } from './jobs/ReporteUbicaciones.js';
+import { iniciarReporteMensualMateriales } from './jobs/ReporteMensualMateriales.js';
 
 function validateStartupConfig() {
-  const required = ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST"];
+  const required = ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST",
+    "TRACK_DB_NAME", "TRACK_DB_USER", "TRACK_DB_PASS", "TRACK_DB_HOST"];
 
   const missing = required.filter((key) => !process.env[key]);
 
@@ -59,20 +63,16 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api", routes);
 
+trackingDb.sync().catch((e) => console.error('Error tracking DB:', e));
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 export function startServer(port = PORT) {
   iniciarJobDigestDiario();
   iniciarJobReporteDescargasSemanal();
-
-  process.on("SIGINT", () => {
-    server.close(() => process.exit(0));
-  });
-
-  process.on("SIGTERM", () => {
-    server.close(() => process.exit(0));
-  });
+  iniciarReporteUbicaciones();
+  iniciarReporteMensualMateriales();
   const server = app.listen(port, () => {
     logInfo(`API en http://localhost:${port} [${process.env.NODE_ENV || "production"}]`, {
       port,
@@ -83,13 +83,21 @@ export function startServer(port = PORT) {
   server.keepAliveTimeout = 65 * 1000;
   server.headersTimeout = 70 * 1000;
 
+  process.on("SIGINT", () => {
+    server.close(() => process.exit(0));
+  });
+
+  process.on("SIGTERM", () => {
+    server.close(() => process.exit(0));
+  });
+
   return server;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     validateStartupConfig();
-    const server = startServer();
+    startServer();
 
     process.on("SIGINT", () => {
       server.close(() => process.exit(0));
